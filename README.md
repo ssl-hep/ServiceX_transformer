@@ -1,18 +1,24 @@
-# ServiceX_transformer
-Repo for input-output transformation code for ServiceX
+# ServiceX_transformer Repo for input-output transformation code for ServiceX
 
-Allows user to access an xAOD-formatted TTree in a ROOT file via a standalone ATLAS analysis release. This requires a Docker image found here:
-
+Allows user to access an xAOD-formatted TTree in a ROOT file via a standalone
+ATLAS analysis release. This is based a Docker image found here:
     https://hub.docker.com/r/atlas/analysisbase
 
-First pull the Docker image:
+# How to Build
+Build the docker image as:
+```bash
+docker build -t printxaodbranches .
+```
 
-    $ docker pull atlas/analysisbase
+# How to Run
+The script in the image assumes that there is a file available in the
+`/xaodFiles` directory called `AOD.11182705._000001.pool.root.1`. We will mount
+this directory in the running container.
 
-and mount this location into the image when you start it:
+```bash
+docker run -v <<path to my xaod files>>:/xaodFiles printxaodbranches
+```
 
-    $ docker run -v $PWD:/home/xaodFiles -it atlas/analysisbase:21.2.14
-
-then run the script via:
-
-    $ ../xaodFiles/printXaodBranches.sh
+The CMD for this Dockerfile will run the script which will output the
+branch names from the Root file.
+ 
