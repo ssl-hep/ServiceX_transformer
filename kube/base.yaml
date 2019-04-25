@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlas-base
+  namespace: servicex
+  labels:
+    app: atlas-base
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlas-base
+  template:
+    metadata:
+      labels:
+        app: atlas-base
+    spec:
+      containers:
+      - name: atlas-base
+        image: atlas/analysisbase:latest
+        imagePullPolicy: "Always"
+        command: ["sleep"]
+        args: ["999999999999999"]
