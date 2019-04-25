@@ -19,5 +19,5 @@ FROM atlas/analysisbase:latest
 COPY run_x509_updater.sh /.
 COPY transform_starter.py /.
 
-COPY printXaodBranches.* /.
+COPY printXaodBranches.* /
 CMD /printXaodBranches.sh
