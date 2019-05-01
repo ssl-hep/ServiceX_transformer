@@ -31,6 +31,7 @@ root -b -q "/xaodFiles/printXaodBranches.C(\"$file\", \"$branch\")"
 while read line; do
     name=""
     type=""
+    size=""
     if [[ "$line" == *"Br"* ]]; then
         name=$(echo "$line" | awk '{print substr($3, 2)}')
         if [[ ! -z "$(echo \"$line\" | awk '{print $6}')" ]]; then
@@ -40,6 +41,12 @@ while read line; do
         read nextLine
         if [[ "$nextLine" == *"|"* ]]; then
             type="$type$(echo \"$nextLine\" | awk '{print $3}')"
+            read nextNextLine
+            if [[ "$nextNextLine" ==  *"Total  Size="* ]]; then
+                size=$(echo "$nextNextLine" | awk '{print $7}')
+            fi
+        elif [[ "$nextLine" == *"Total  Size="* ]]; then
+            size=$(echo "$nextLine" | awk '{print $7}')
         fi
     fi
 
@@ -48,9 +55,14 @@ while read line; do
     fi
 
     if [[ ! -z $name ]]; then
-        echo "$name $type" >> xaodBranches.txt
+        echo "{" >> xaodBranches.txt
+        echo "    \"branchName\": \"$name\"," >> xaodBranches.txt
+        echo "    \"branchType\": \"$type\"," >> xaodBranches.txt
+        echo "    \"branchSize\": $size" >> xaodBranches.txt
+        echo "}" >> xaodBranches.txt
+        # echo "$name $type $size" >> xaodBranches.txt
     fi
 done < temp.txt
 
 rm temp.txt
-cat xaodBranches.txt
+# cat xaodBranches.txt
