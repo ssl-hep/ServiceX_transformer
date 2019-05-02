@@ -38,17 +38,17 @@ def write_branches_to_ntuple(file_name, branch_name):
     file_out = ROOT.TFile('flat_ntuple.root', 'recreate')
     tree_out = ROOT.TTree('flat_ntuple', "Flat ntuple")
 
-    n_electrons = np.zeros(1, dtype=int)
-    electron_pt = ROOT.std.vector('float')()
-    electron_eta = ROOT.std.vector('float')()
-    electron_phi = ROOT.std.vector('float')()
-    electron_e = ROOT.std.vector('float')()
+    n_particles = np.zeros(1, dtype=int)
+    particle_pt = ROOT.std.vector('float')()
+    particle_eta = ROOT.std.vector('float')()
+    particle_phi = ROOT.std.vector('float')()
+    particle_e = ROOT.std.vector('float')()
 
-    b_n_electrons = tree_out.Branch('n_electrons', n_electrons, 'n_electrons/I')
-    b_electron_pt = tree_out.Branch('electron_pt', electron_pt)
-    b_electron_eta = tree_out.Branch('electron_eta', electron_eta)
-    b_electron_phi = tree_out.Branch('electron_phi', electron_phi)
-    b_electron_e = tree_out.Branch('electron_e', electron_e)
+    b_n_particles = tree_out.Branch('n_particles', n_particles, 'n_particles/I')
+    b_particle_pt = tree_out.Branch('particle_pt', particle_pt)
+    b_particle_eta = tree_out.Branch('particle_eta', particle_eta)
+    b_particle_phi = tree_out.Branch('particle_phi', particle_phi)
+    b_particle_e = tree_out.Branch('particle_e', particle_e)
 
     for j_entry in xrange(n_entries):
         tree_in.GetEntry(j_entry)
@@ -56,15 +56,17 @@ def write_branches_to_ntuple(file_name, branch_name):
             print("Processing run #" + str(tree_in.EventInfo.runNumber())
                   + ", event #" + str(tree_in.EventInfo.eventNumber())
                   + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
-        
-        n_electrons[0] = tree_in.Electrons.size()
-        electron_pt.clear()
-        for i in xrange(tree_in.Electrons.size()):
-            electron = tree_in.Electrons.at(i)
-            electron_pt.push_back(electron.trackParticle().pt())
-            electron_eta.push_back(electron.trackParticle().eta())
-            electron_phi.push_back(electron.trackParticle().phi())
-            electron_e.push_back(electron.trackParticle().e())
+
+        exec("particles = tree_in." + branch_name)
+
+        n_particles[0] = particles.size()
+        particle_pt.clear()
+        for i in xrange(particles.size()):
+            particle = particles.at(i)
+            particle_pt.push_back(particle.trackParticle().pt())
+            particle_eta.push_back(particle.trackParticle().eta())
+            particle_phi.push_back(particle.trackParticle().phi())
+            particle_e.push_back(particle.trackParticle().e())
         
         tree_out.Fill()
 
