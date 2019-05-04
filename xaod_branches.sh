@@ -3,13 +3,16 @@
 
 # Set up the environment
 source /home/atlas/release_setup.sh
-echo '{gROOT->Macro("$ROOTCOREDIR/scripts/load_packages.C");}' > rootlogon.C
+# echo '{gROOT->Macro("$ROOTCOREDIR/scripts/load_packages.C");}' > rootlogon.C
 
 # Get input ROOT file and branches
-while getopts f:b: option; do
+while getopts f:b:a option; do
     case "${option}" in
         f) file=${OPTARG};;
         b) branch=${OPTARG};;
+        a) set -f   # Disable glob
+           IFS=','   # Split on comma characters
+           attr_array=($OPTARG);;   # Use the split+glob operator
     esac
 done
 
@@ -19,12 +22,15 @@ fi
 if [[ -z $branch ]]; then
     branch="Electrons"
 fi
+if [[ -z $attr_array ]]; then
+    attr_array=("pt" "eta" "phi" "e")
+fi
 
 
 
 print_branches () {
     # Print xAOD branches to temporary file temp.txt
-    python -c "import xaod_branches; xaod_branches.print_branches(\"$file\")"
+    python -c "import xaod_branches; xaod_branches.print_branches(\"$file\", \"$branch\")"
     
     # Search the file for the branch name, type, and size
     >| xaodBranches.txt
@@ -72,7 +78,13 @@ print_branches () {
 
 
 write_branches_to_ntuple () {
-    python -c "import xaod_branches; xaod_branches.write_branches_to_ntuple(\"$file\", \"$branch\")"
+    attr_list="["
+    for i in "${attr_array[@]}"; do
+        attr_list="${attr_list}\"${i}\", "
+    done
+    attr_list="${attr_list}]"
+
+    python -c "import xaod_branches; xaod_branches.write_branches_to_ntuple(\"$file\", \"$branch\", $attr_list)"
     
     # Do whatever needs to be done with the output flat ntuple
 }
