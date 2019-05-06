@@ -6,6 +6,5 @@ REM echo "Adding conf"
 REM kubectl delete secret -n servicex config
 REM kubectl create secret -n servicex generic config --from-file=conf=../config/config.json
 
-
 kubectl create -f transformer.yaml
 

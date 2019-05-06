@@ -38,14 +38,14 @@ spec:
       - name: transformer
         image: sslhep/servicex-transformer:latest
         imagePullPolicy: "Always"
-        command: ["python"]
+        command: ["python3"]
         args: ["transform_starter.py"]
         env:
         - name: PYTHONUNBUFFERED
           value: "0"
         volumeMounts:
         - name: conf-volume
-          mountPath: "/etc/servicex/"
+          mountPath: "/usr/src/app/config/"
         - name: x509-data
           mountPath: "/etc/grid-security/"
           readOnly: false

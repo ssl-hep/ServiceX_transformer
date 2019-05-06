@@ -38,6 +38,10 @@ RUN sudo yum install -y python34; \
 # get back to atlas user
 # RUN sudo su atlas
 
+
+# Create app directory
+WORKDIR /usr/src/app
+
 COPY . .
 
 # COPY run_x509_updater.sh /.
