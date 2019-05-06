@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
       - name: atlas-base
-        image: atlas/analysisbase:latest
+        # image: atlas/analysisbase:latest
+        image: sslhep/servicex-transformer:latest
         imagePullPolicy: "Always"
         command: ["sleep"]
         args: ["999999999999999"]

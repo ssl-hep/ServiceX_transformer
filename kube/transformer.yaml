@@ -39,7 +39,7 @@ spec:
         image: sslhep/servicex-transformer:latest
         imagePullPolicy: "Always"
         command: ["python"]
-        args: ["/transform_starter.py"]
+        args: ["transform_starter.py"]
         env:
         - name: PYTHONUNBUFFERED
           value: "0"

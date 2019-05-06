@@ -24,9 +24,16 @@ RUN sudo yum localinstall https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el6-r
 RUN sudo yum install -y voms fetch-crl 
 ENV X509_USER_PROXY /etc/grid-security/x509up
 
+
 RUN sudo curl https://bootstrap.pypa.io/2.6/get-pip.py -o get-pip.py; \
     sudo python get-pip.py; \
     sudo pip install elasticsearch;
+
+
+RUN sudo yum install -y python34; \
+    sudo curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py; \
+    sudo python3 get-pip.py; \
+    sudo pip3 install elasticsearch;
 
 # get back to atlas user
 # RUN sudo su atlas
@@ -37,4 +44,4 @@ COPY . .
 # COPY transform_starter.py /.
 # COPY printXaodBranches.* /
 
-CMD /printXaodBranches.sh
+# CMD printXaodBranches.sh
