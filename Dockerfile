@@ -2,8 +2,7 @@ FROM atlas/analysisbase:latest
 
 LABEL maintainer Ilija Vukotic <ivukotic@cern.ch>
 
-# analysisbase already sets user "atlas" so first get to root.
-RUN sudo su -
+# analysisbase already sets user "atlas" so have to sudo everything
 
 RUN sudo mkdir -p /etc/grid-security/certificates /etc/grid-security/vomsdir 
 
@@ -26,8 +25,8 @@ RUN sudo yum install -y voms fetch-crl
 ENV X509_USER_PROXY /etc/grid-security/x509up
 
 RUN sudo curl https://bootstrap.pypa.io/2.6/get-pip.py -o get-pip.py; \
-    python get-pip.py; \
-    pip install elasticsearch;
+    sudo python get-pip.py; \
+    sudo pip install elasticsearch;
 
 # get back to atlas user
 # RUN sudo su atlas
