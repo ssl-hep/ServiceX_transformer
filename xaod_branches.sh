@@ -62,16 +62,16 @@ print_branches () {
         fi
 
         if [[ ! -z $name ]]; then
-            echo "{" >> xaodBranches.txt
-            echo "    \"branchName\": \"$name\"," >> xaodBranches.txt
-            echo "    \"branchType\": \"$type\"," >> xaodBranches.txt
-            echo "    \"branchSize\": $size" >> xaodBranches.txt
-            echo "}" >> xaodBranches.txt
+            echo "{" >> /data/xaodBranches.txt
+            echo "    \"branchName\": \"$name\"," >> /data/xaodBranches.txt
+            echo "    \"branchType\": \"$type\"," >> /data/xaodBranches.txt
+            echo "    \"branchSize\": $size" >> /data/xaodBranches.txt
+            echo "}" >> /data/xaodBranches.txt
             # echo "$name $type $size" >> xaodBranches.txt
         fi
-    done < temp.txt
+    done < /data/temp.txt
 
-    rm temp.txt
+    rm /data/temp.txt
 
     # Do whatever needs to be done with the output json
 }

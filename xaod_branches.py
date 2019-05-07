@@ -11,7 +11,7 @@ def print_branches(file_name, branch_name):
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
-    ROOT.gSystem.RedirectOutput('temp.txt', 'w')
+    ROOT.gSystem.RedirectOutput('/data/temp.txt', 'w')
     tree_in.Print()
 
     # To print the attributes of a particle collection
