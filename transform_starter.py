@@ -3,6 +3,11 @@ import json
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 
+import ROOT
+import numpy as np
+ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
+
+
 with open('config/config.json') as json_file:
     conf = json.load(json_file)
 
