@@ -11,7 +11,7 @@ def print_branches(file_name, branch_name):
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
-    ROOT.gSystem.RedirectOutput('/data/temp.txt', 'w')
+    ROOT.gSystem.RedirectOutput('temp.txt', 'w')
     tree_in.Print()
 
     # To print the attributes of a particle collection
@@ -21,37 +21,42 @@ def print_branches(file_name, branch_name):
     if particles.size() >= 1:
         for method_name in dir(particles.at(0)):
             print(method_name)
-
+    
     ROOT.gROOT.ProcessLine("gSystem->RedirectOutput(0);")
 
 
 
-def write_branches_to_ntuple(file_name, branch_name, attr_name_list):
+def write_branches_to_ntuple(file_name, attr_name_list):
     sw = ROOT.TStopwatch()
     sw.Start()
-
+    
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
     tree_in.SetBranchStatus('*', 0)
     tree_in.SetBranchStatus('EventInfo', 1)
-    tree_in.SetBranchStatus(branch_name, 1)
-
+    for attr_name in attr_name_list:
+        if tree_in.GetBranchStatus(attr_name.split('.')[0]) == 0:
+            tree_in.SetBranchStatus(attr_name.split('.')[0], 1)
+    
     n_entries = tree_in.GetEntries()
     print("Total entries: " + str(n_entries))
 
-    file_out = ROOT.TFile('/data/flat_file.root', 'recreate')
+    file_out = ROOT.TFile('flat_file.root', 'recreate')
     tree_out = ROOT.TTree('flat_tree', '')
 
-    n_particles = np.zeros(1, dtype=int)
+    # n_particles = np.zeros(1, dtype=int)
     particle_attr = {}
     for attr_name in attr_name_list:
         particle_attr[attr_name] = ROOT.std.vector('float')()
 
-    b_n_particles = tree_out.Branch('n_particles', n_particles, 'n_particles/I')
+    # b_n_particles = tree_out.Branch('n_particles', n_particles, 'n_particles/I')
     b_particle_attr = {}
     for attr_name in attr_name_list:
-        b_particle_attr[attr_name] = tree_out.Branch('particle_' + attr_name, particle_attr[attr_name])
+        b_particle_attr[attr_name] = tree_out.Branch(
+            attr_name.split('.')[0] + '_' + attr_name.split('.')[1].strip('()'),
+            particle_attr[attr_name]
+            )
 
     for j_entry in xrange(n_entries):
         tree_in.GetEntry(j_entry)
@@ -60,24 +65,23 @@ def write_branches_to_ntuple(file_name, branch_name, attr_name_list):
                   + ", event #" + str(tree_in.EventInfo.eventNumber())
                   + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
 
-        particles = getattr(tree_in, branch_name)
-        n_particles[0] = particles.size()
+        # FIX: Right now, only works if all attributes come from same branch
+        particles = getattr(tree_in, attr_name_list[0].split('.')[0])
+        # n_particles[0] = particles.size()
         for attr_name in attr_name_list:
             particle_attr[attr_name].clear()
         for i in xrange(particles.size()):
             particle = particles.at(i)
 
-            # Maybe enforce branch type with:
-            # if exec("type(particle." + attr_name + "())") == float:
             for attr_name in attr_name_list:
-                exec("particle_attr[attr_name].push_back(particle." + attr_name + "())")
-
+                exec("particle_attr[attr_name].push_back(particle." + attr_name.split('.')[1] + ")")
+        
         tree_out.Fill()
 
     file_out.Write()
     file_out.Close()
     ROOT.xAOD.ClearTransientTrees()
-
+    
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
