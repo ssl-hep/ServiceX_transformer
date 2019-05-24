@@ -44,7 +44,7 @@ COPY . .
 
 # CMD printXaodBranches.sh
 
-RUN source /home/atlas/release_setup.sh \
+RUN source /home/atlas/release_setup.sh; \
     pip install --user \
     awkward==0.10.2 \
     requests \
