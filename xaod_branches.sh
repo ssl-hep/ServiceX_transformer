@@ -23,7 +23,8 @@ if [[ -z $branch ]]; then
     branch="Electrons"
 fi
 if [[ -z $attr_array ]]; then
-    attr_array=("Electrons.pt()" "Electrons.eta()" "Electrons.phi()" "Electrons.e()" "Muons.pt()" "Muons.eta()" "Muons.phi()" "Muons.e()")
+    # attr_array=("Electrons.pt()" "Electrons.eta()" "Electrons.phi()" "Electrons.e()" "Muons.pt()" "Muons.eta()" "Muons.phi()" "Muons.e()")
+    attr_array=("Electrons.pt()" "Electrons.eta()" "Electrons.phi()" "Electrons.e()")
 fi
 
 
@@ -103,5 +104,5 @@ write_branches_to_arrow () {
 
 
 
-print_branches
+# print_branches
 write_branches_to_arrow
