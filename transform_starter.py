@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+import requests
+
 import time
 import json
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk
 
 import ROOT
 import numpy as np
@@ -22,6 +23,22 @@ time.sleep(60)
 es = Elasticsearch([conf['ES_HOST']], timeout=60)
 
 while True:
+
+    RESP = requests.get('https://' + conf['SITENAME'] + '/drequest_get/Prescreened', verify=False)
+    print(RESP)
+    if RESP.status_code != 200:
+        print('error in getting prescreened data access request.')
+        time.sleep(10)
+        continue
+
+    DAR = RESP.content
+    print(DAR)
+
+    if DAR == 'null':
+        print('no prescrened data access requests found.')
+        time.sleep(10)
+        continue
+
     res = es.search(index="servicex", body={"size": 1, "query": {"match": {"status": "Prescreened"}}})
     if res['hits']['total']:
         print("Got %d Hits:" % res['hits']['total'])

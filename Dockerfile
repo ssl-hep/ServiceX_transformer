@@ -43,3 +43,6 @@ COPY . .
 # COPY printXaodBranches.* /
 
 # CMD printXaodBranches.sh
+
+RUN source /home/atlas/release_setup.sh
+RUN pip install awkward==0.10.2 requests pyarrow --user
