@@ -17,7 +17,8 @@ while getopts f:b:a option; do
 done
 
 if [[ -z $file ]]; then
-    file="/xaodFiles/AOD.11182705._000001.pool.root.1"
+    # file="/xaodFiles/AOD.11182705._000001.pool.root.1"
+    file="root://xcache.mwt2.org:1094//root://dcache-atlas-xrootd.desy.de:1094//pnfs/desy.de/atlas/dq2/atlaslocalgroupdisk/rucio/mc15_13TeV/8a/f1/DAOD_STDM3.05630052._000001.pool.root.1"
 fi
 if [[ -z $branch ]]; then
     branch="Electrons"
