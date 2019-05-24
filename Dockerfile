@@ -38,8 +38,12 @@ WORKDIR /usr/src/app
 
 COPY . .
 
+# Install Python dependencies from pip
+RUN pip install awkward==0.10.2 --user
+RUN pip install pyarrow --user
+
 # COPY run_x509_updater.sh /.
 # COPY transform_starter.py /.
-# COPY printXaodBranches.* /
+# COPY xaod_branches.* /
 
-# CMD printXaodBranches.sh
+# CMD xaod_branches.sh
