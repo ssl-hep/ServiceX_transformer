@@ -38,9 +38,11 @@ WORKDIR /usr/src/app
 
 COPY . .
 
+USER atlas
+
 # Install Python dependencies from pip
-RUN pip install awkward==0.10.2 --user
-RUN pip install pyarrow --user
+RUN source /home/atlas/release_setup.sh && \
+     pip install -r requirements.txt --user
 
 # COPY run_x509_updater.sh /.
 # COPY transform_starter.py /.

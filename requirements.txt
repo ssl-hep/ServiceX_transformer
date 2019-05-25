@@ -1,0 +1,3 @@
+argparse>=1.1
+awkward>=0.10.2
+pyarrow
