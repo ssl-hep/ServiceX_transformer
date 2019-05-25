@@ -33,16 +33,19 @@ ENV X509_USER_PROXY /etc/grid-security/x509up
 # get back to atlas user
 # RUN sudo su atlas
 
+USER atlas
+COPY requirements.txt /home/atlas
+
+# Install Python dependencies from pip
+RUN source /home/atlas/release_setup.sh && \
+     pip install -r requirements.txt --user
+
+
 # Create app directory
 WORKDIR /usr/src/app
 
 COPY . .
 
-USER atlas
-
-# Install Python dependencies from pip
-RUN source /home/atlas/release_setup.sh && \
-     pip install -r requirements.txt --user
 
 # COPY run_x509_updater.sh /.
 # COPY transform_starter.py /.
