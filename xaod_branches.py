@@ -3,8 +3,66 @@
 # Set up ROOT, uproot, and RootCore:
 import ROOT
 import numpy as np
+import pyarrow as pa
 import awkward
+from kafka import KafkaProducer
+
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
+kafka_brokers = ['localhost:9092']
+
+
+
+def connect_kafka_producer(brokers):
+    _producer = None
+    try:
+        _producer = KafkaProducer(bootstrap_servers=brokers,
+                                  api_version=(0, 10))
+    except Excception as ex:
+        print("Exception while connecting Kafka")
+        # print(ex)
+    finally:
+        return _producer
+
+
+
+def publish_message(producer_instance, topic_name, key, value_bytes):
+    try:
+        key_bytes = bytes(key, encoding='utf-8')
+        producer_instance.send(topic_name, key=key_bytes, value=value_bytes)
+        producer_instance.flush()
+        print("Message published successfully")
+    except Exception as ex:
+        print("Exception in publishing message")
+        # print(ex)
+
+
+
+def make_event_table(tree, branches):
+    n_entries = tree.GetEntries()
+    print("Total entries: " + str(n_entries))
+
+    for j_entry in xrange(n_entries):
+        tree.GetEntry(j_entry)
+        if j_entry % 1000 == 0:
+            print("Processing run #" + str(tree.EventInfo.runNumber())
+                  + ", event #" + str(tree.EventInfo.eventNumber())
+                  + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
+
+        particles = {}
+        full_event = []
+        for branch_name in branches:
+            particles[branch_name] = getattr(tree, branch_name)
+            for i in xrange(particles[branch_name].size()):
+                particle = particles[branch_name].at(i)
+                single_particle_attr = {}
+                for a_name in branches[branch_name]:
+                    attr_name = branch_name + '.' + a_name
+                    exec('single_particle_attr[attr_name] = particle.' + a_name)
+                full_event.append(single_particle_attr)
+
+        yield full_event
+
+        if j_entry == 5: break
 
 
 
@@ -122,8 +180,6 @@ def write_branches_to_arrow(file_name, attr_name_list):
 
     object_array = awkward.fromiter(make_event_table(tree_in, branches))
 
-    # tmp = awkward.toarrow(object_array)
-
     table_def = "awkward.Table("
     for attr_name in attr_name_list[:-1]:
         table_def = (table_def + attr_name.split('.')[0] + '_'
@@ -135,39 +191,20 @@ def write_branches_to_arrow(file_name, attr_name_list):
     object_table = eval(table_def)
     # object_table = awkward.Table(Electrons_pt=object_array['Electrons.pt()'], Electrons_eta=object_array['Electrons.eta()'], Electrons_phi=object_array['Electrons.phi()'], Electrons_e=object_array['Electrons.e()'])
 
-    awkward.toparquet('tmp.parquet', object_table)
+    producer = connect_kafka_producer(kafka_brokers)
+    pa_table = awkward.toarrow(object_table)
+    batches = pa_table.to_batches()
+    file_number = 1
+    for batch in batches:
+        sink = pa.BufferOutputStream()
+        writer = pa.RecordBatchStreamWriter(sink, batch.schema)
+        writer.write_batch(batch)
+        writer.close()
+        publish_message(producer, topic_name='servicex', key=file_number,
+                        value_bytes=sink.getvalue())
 
     ROOT.xAOD.ClearTransientTrees()
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
-
-
-
-def make_event_table(tree, branches):
-    n_entries = tree.GetEntries()
-    print("Total entries: " + str(n_entries))
-
-    for j_entry in xrange(n_entries):
-        tree.GetEntry(j_entry)
-        if j_entry % 1000 == 0:
-            print("Processing run #" + str(tree.EventInfo.runNumber())
-                  + ", event #" + str(tree.EventInfo.eventNumber())
-                  + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
-
-        particles = {}
-        full_event = []
-        for branch_name in branches:
-            particles[branch_name] = getattr(tree, branch_name)
-            for i in xrange(particles[branch_name].size()):
-                particle = particles[branch_name].at(i)
-                single_particle_attr = {}
-                for a_name in branches[branch_name]:
-                    attr_name = branch_name + '.' + a_name
-                    exec('single_particle_attr[attr_name] = particle.' + a_name)
-                full_event.append(single_particle_attr)
-
-        yield full_event
-
-        # if j_entry == 5: break
