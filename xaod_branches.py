@@ -121,7 +121,21 @@ def write_branches_to_arrow(file_name, attr_name_list):
         tree_in.SetBranchStatus(branch_name, 1)
 
     object_array = awkward.fromiter(make_event_table(tree_in, branches))
-    object_table = awkward.Table(pt=object_array['Electrons.pt()'], eta=object_array['Electrons.eta()'])
+
+    # tmp = awkward.toarrow(object_array)
+
+    table_def = "awkward.Table("
+    for attr_name in attr_name_list[:-1]:
+        table_def = (table_def + attr_name.split('.')[0] + '_'
+                    + attr_name.split('.')[1].strip('()') + "=object_array['"
+                    + attr_name + "'], ")
+    table_def = (table_def + attr_name_list[-1].split('.')[0] + '_'
+                 + attr_name_list[-1].split('.')[1].strip('()')
+                 + "=object_array['" + attr_name_list[-1] + "'])")
+    object_table = eval(table_def)
+    # object_table = awkward.Table(Electrons_pt=object_array['Electrons.pt()'], Electrons_eta=object_array['Electrons.eta()'], Electrons_phi=object_array['Electrons.phi()'], Electrons_e=object_array['Electrons.e()'])
+
+    awkward.toparquet('tmp.parquet', object_table)
 
     ROOT.xAOD.ClearTransientTrees()
 
@@ -135,20 +149,24 @@ def make_event_table(tree, branches):
     n_entries = tree.GetEntries()
     print("Total entries: " + str(n_entries))
 
-    for j_entry, event in enumerate(tree):
+    for j_entry in xrange(n_entries):
+        tree.GetEntry(j_entry)
         if j_entry % 1000 == 0:
-            print("Processing run #" + str(event.EventInfo.runNumber())
-                  + ", event #" + str(event.EventInfo.eventNumber())
+            print("Processing run #" + str(tree.EventInfo.runNumber())
+                  + ", event #" + str(tree.EventInfo.eventNumber())
                   + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
-        
+
+        particles = {}
         full_event = []
         for branch_name in branches:
-            for particle in getattr(event, branch_name):
-                particle_attr = {}
+            particles[branch_name] = getattr(tree, branch_name)
+            for i in xrange(particles[branch_name].size()):
+                particle = particles[branch_name].at(i)
+                single_particle_attr = {}
                 for a_name in branches[branch_name]:
                     attr_name = branch_name + '.' + a_name
-                    exec('particle_attr[attr_name] = particle.' + a_name)
-                full_event.append(particle_attr)
+                    exec('single_particle_attr[attr_name] = particle.' + a_name)
+                full_event.append(single_particle_attr)
 
         yield full_event
 
