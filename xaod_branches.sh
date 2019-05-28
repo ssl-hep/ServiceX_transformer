@@ -17,14 +17,14 @@ while getopts f:b:a option; do
 done
 
 if [[ -z $file ]]; then
-    # file="/xaodFiles/AOD.11182705._000001.pool.root.1"
-    file="root://xcache.mwt2.org:1094//root://dcache-atlas-xrootd.desy.de:1094//pnfs/desy.de/atlas/dq2/atlaslocalgroupdisk/rucio/mc15_13TeV/8a/f1/DAOD_STDM3.05630052._000001.pool.root.1"
+    file="/xaodFiles/AOD.11182705._000001.pool.root.1"
 fi
 if [[ -z $branch ]]; then
     branch="Electrons"
 fi
 if [[ -z $attr_array ]]; then
-    attr_array=("pt" "eta" "phi" "e")
+    # attr_array=("Electrons.pt()" "Electrons.eta()" "Electrons.phi()" "Electrons.e()" "Muons.pt()" "Muons.eta()" "Muons.phi()" "Muons.e()")
+    attr_array=("Electrons.pt()" "Electrons.eta()" "Electrons.phi()" "Electrons.e()")
 fi
 
 
@@ -34,7 +34,7 @@ print_branches () {
     python -c "import xaod_branches; xaod_branches.print_branches(\"$file\", \"$branch\")"
     
     # Search the file for the branch name, type, and size
-    >| xaodBranches.txt
+    >| xaod_branches.txt
     while read line; do
         name=""
         type=""
@@ -62,12 +62,12 @@ print_branches () {
         fi
 
         if [[ ! -z $name ]]; then
-            echo "{" >> xaodBranches.txt
-            echo "    \"branchName\": \"$name\"," >> xaodBranches.txt
-            echo "    \"branchType\": \"$type\"," >> xaodBranches.txt
-            echo "    \"branchSize\": $size" >> xaodBranches.txt
-            echo "}" >> xaodBranches.txt
-            # echo "$name $type $size" >> xaodBranches.txt
+            echo "{" >> xaod_branches.txt
+            echo "    \"branchName\": \"$name\"," >> xaod_branches.txt
+            echo "    \"branchType\": \"$type\"," >> xaod_branches.txt
+            echo "    \"branchSize\": $size" >> xaod_branches.txt
+            echo "}" >> xaod_branches.txt
+            # echo "$name $type $size" >> xaod_branches.txt
         fi
     done < temp.txt
 
@@ -85,12 +85,24 @@ write_branches_to_ntuple () {
     done
     attr_list="${attr_list}]"
 
-    python -c "import xaod_branches; xaod_branches.write_branches_to_ntuple(\"$file\", \"$branch\", $attr_list)"
+    python -c "import xaod_branches; xaod_branches.write_branches_to_ntuple(\"$file\", $attr_list)"
     
     # Do whatever needs to be done with the output flat ntuple
 }
 
 
 
-print_branches
-write_branches_to_ntuple
+write_branches_to_arrow () {
+    attr_list="["
+    for i in "${attr_array[@]}"; do
+        attr_list="${attr_list}\"${i}\", "
+    done
+    attr_list="${attr_list}]"
+
+    python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow(\"$file\", $attr_list))"
+}
+
+
+
+# print_branches
+write_branches_to_arrow
