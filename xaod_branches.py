@@ -9,7 +9,7 @@ import awkward
 from kafka import KafkaProducer
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
-kafka_brokers = ['localhost:9092']
+kafka_brokers = ['servicex-kafka.kafka.svc.cluster.local:9092']
 
 
 
