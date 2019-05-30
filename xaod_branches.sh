@@ -98,8 +98,29 @@ write_branches_to_arrow () {
         attr_list="${attr_list}\"${i}\", "
     done
     attr_list="${attr_list}]"
-
-    python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow(\"$file\", $attr_list))"
+    
+    # if [ "$x" = "valid" ]; then
+    while [ "$rpath_output" != *"_source"* ]
+    do
+        rpath_output=$(curl -XGET -k -s https://servicex.slateci.net/dpath/transform)
+        echo $rpath_output
+        echo $(jq '._source != null')
+        sleep 10
+        
+        _id=$(echo $rpath_output | jq '._id')
+        _request_id=$(echo $rpath_output | jq -r '._source.req_id')
+        _file_path=$(echo $rpath_output | jq '._source.file_path')
+        _file_events=$(echo $rpath_output | jq '._source.file_events')
+        
+        request_output=$(curl -XGET -k -s https://servicex.slateci.net/drequest/$_request_id)
+        
+        _columns=$(echo $request_output | jq '._source.columns')
+        _columns="[${_columns}]"
+        _events=$(echo $request_output | jq -r '._source.events')
+        
+        # python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow(\"$file\", $attr_list))"
+        # python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow($_file_path, $_columns))"
+    done
 }
 
 
