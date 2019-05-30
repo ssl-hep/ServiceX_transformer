@@ -28,7 +28,6 @@ ENV X509_USER_PROXY /etc/grid-security/x509up
 # RUN sudo yum install -y python34; \
 #     sudo curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py; \
 #     sudo python3 get-pip.py; \
-#     sudo pip3 install elasticsearch;
 
 # get back to atlas user
 # RUN sudo su atlas
@@ -38,14 +37,10 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-# COPY run_x509_updater.sh /.
-# COPY transform_starter.py /.
-# COPY printXaodBranches.* /
-
-# CMD printXaodBranches.sh
-
 RUN source /home/atlas/release_setup.sh; \
     pip install --user \
     awkward==0.10.2 \
     requests \
     pyarrow 
+
+# CMD xaod_branches.sh

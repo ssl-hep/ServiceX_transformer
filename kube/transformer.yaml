@@ -38,8 +38,7 @@ spec:
       - name: transformer
         image: sslhep/servicex-transformer:latest
         imagePullPolicy: "Always"
-        command: ["python3"]
-        args: ["transform_starter.py"]
+        command: ["xaod_branches.sh"]
         env:
         - name: PYTHONUNBUFFERED
           value: "0"
