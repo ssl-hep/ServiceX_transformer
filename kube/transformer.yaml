@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: transformer
-  namespace: servicex-transformer
+  namespace: servicex
   labels:
     app: transformer
 spec:
@@ -16,12 +16,12 @@ spec:
         app: transformer
     spec:
       volumes:
-      - name: conf-volume
-        secret:
-          secretName: config
-          items:
-          - key: conf
-            path: config.json  
+      # - name: conf-volume
+      #   secret:
+      #     secretName: config
+      #     items:
+      #     - key: conf
+      #       path: config.json  
       - name: x509-data
         emptyDir: {}
       - name: x509-certs-volume
@@ -43,8 +43,8 @@ spec:
         - name: PYTHONUNBUFFERED
           value: "0"
         volumeMounts:
-        - name: conf-volume
-          mountPath: "/usr/src/app/config/"
+        # - name: conf-volume
+        #   mountPath: "/usr/src/app/config/"
         - name: x509-data
           mountPath: "/etc/grid-security/"
           readOnly: false

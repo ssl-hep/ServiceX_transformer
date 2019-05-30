@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: atlas-base
-  namespace: servicex-transformer
+  namespace: servicex
   labels:
     app: atlas-base
 spec:
