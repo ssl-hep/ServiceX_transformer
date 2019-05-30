@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Set up ROOT, uproot, and RootCore:
+import os
 import ROOT
 import numpy as np
 import pyarrow as pa
@@ -163,6 +164,8 @@ def write_branches_to_arrow(file_name, attr_name_list):
     sw = ROOT.TStopwatch()
     sw.Start()
     
+    print(file_name)
+    
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
@@ -204,6 +207,9 @@ def write_branches_to_arrow(file_name, attr_name_list):
                         value_bytes=sink.getvalue())
 
     ROOT.xAOD.ClearTransientTrees()
+    
+    # Needs work:
+    # os.system("curl -XPUT https://servicex/slateci.net/dpath/transform/[id]/Transformed")
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")

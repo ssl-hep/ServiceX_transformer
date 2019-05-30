@@ -45,6 +45,7 @@ RUN source /home/atlas/release_setup.sh; \
     pip install --user \
     awkward==0.10.2 \
     requests \
-    pyarrow 
+    pyarrow \
+    kafka
 
 # CMD xaod_branches.sh
