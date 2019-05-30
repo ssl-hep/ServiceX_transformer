@@ -21,7 +21,11 @@ RUN sudo yum localinstall https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el6-r
 # epel comes preinstalled.
 # RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-6.noarch.rpm;
 
-RUN sudo yum install -y voms fetch-crl 
+RUN sudo yum install -y \
+    voms \
+    fetch-crl \
+    jq
+
 ENV X509_USER_PROXY /etc/grid-security/x509up
 
 # not needed. 
