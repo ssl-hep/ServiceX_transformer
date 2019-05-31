@@ -7,7 +7,7 @@ import numpy as np
 import pyarrow as pa
 import awkward
 from kafka import KafkaProducer
-import uproot_methods
+# import uproot_methods
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 kafka_brokers = ['servicex-kafka.kafka.svc.cluster.local:9092']
