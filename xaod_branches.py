@@ -7,6 +7,7 @@ import numpy as np
 import pyarrow as pa
 import awkward
 from kafka import KafkaProducer
+import uproot_methods
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 kafka_brokers = ['servicex-kafka.kafka.svc.cluster.local:9092']
@@ -161,9 +162,6 @@ def write_branches_to_ntuple(file_name, attr_name_list):
 
 
 def write_branches_to_arrow(file_name, attr_name_list, id):
-    
-    print(file_name)
-    
     sw = ROOT.TStopwatch()
     sw.Start()
     
@@ -208,6 +206,17 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
         writer.close()
         publish_message(producer, topic_name='servicex', key=file_number,
                         value_bytes=sink.getvalue())
+    
+    #object_table = awkward.fromarrow(pa_table)
+    #new_object_table = object_table['Electrons_pt'] * object_table['Electrons_eta']
+    ## print(new_object_table.flatten())
+    
+    #v_particles = uproot_methods.TLorentzVectorArray.from_ptetaphi(
+        #object_table['Electrons_pt'], object_table['Electrons_eta'],
+        #object_table['Electrons_phi'], object_table['Electrons_e'],
+        #)
+    
+    #print(v_particles[v_particles.counts > 0][0].eta.tolist())
 
     ROOT.xAOD.ClearTransientTrees()
     
