@@ -114,7 +114,7 @@ write_branches_to_arrow () {
         _columns=$(echo $request_output | jq '._source.columns')
         _events=$(echo $request_output | jq -r '._source.events')
         
-        # python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow(\"$file\", $attr_list))"
+        # python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow(\"$file\", $attr_list, 1))"
         python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow($_file_path, $_columns, $_id))"
         
         if [ $(echo $rpath_output | jq '._source != null') ]
