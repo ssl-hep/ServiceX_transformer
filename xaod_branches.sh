@@ -102,17 +102,19 @@ write_branches_to_arrow () {
     while true
     do
         rpath_output=$(curl -XGET -k -s https://servicex.slateci.net/dpath/transform)
-        sleep 10
         
         _id=$(echo $rpath_output | jq '._id')
         _request_id=$(echo $rpath_output | jq -r '._source.req_id')
         _file_path=$(echo $rpath_output | jq '._source.file_path')
         _file_events=$(echo $rpath_output | jq '._source.file_events')
         
+        echo recieved id: $_id path: $_file_path
         request_output=$(curl -XGET -k -s https://servicex.slateci.net/drequest/$_request_id)
         
         _columns=$(echo $request_output | jq '._source.columns')
         _events=$(echo $request_output | jq -r '._source.events')
+        
+        echo recieved request: $_request_id columns: $_columns
         
         # python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow(\"$file\", $attr_list, 1))"
         python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow($_file_path, $_columns, $_id))"
@@ -121,6 +123,8 @@ write_branches_to_arrow () {
         then
             break
         fi
+        
+        sleep 10
     done
 }
 

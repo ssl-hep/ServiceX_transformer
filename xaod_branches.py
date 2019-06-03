@@ -198,14 +198,17 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
     producer = connect_kafka_producer(kafka_brokers)
     pa_table = awkward.toarrow(object_table)
     batches = pa_table.to_batches()
-    file_number = 1
+    
+    # TODO: batch number should be changed so it is unique for the request.
+    batch_number = 0
     for batch in batches:
         sink = pa.BufferOutputStream()
         writer = pa.RecordBatchStreamWriter(sink, batch.schema)
         writer.write_batch(batch)
         writer.close()
-        publish_message(producer, topic_name='servicex', key=file_number,
+        publish_message(producer, topic_name='servicex', key=batch_number,
                         value_bytes=sink.getvalue())
+        batch_number += 1
     
     #object_table = awkward.fromarrow(pa_table)
     #new_object_table = object_table['Electrons_pt'] * object_table['Electrons_eta']
