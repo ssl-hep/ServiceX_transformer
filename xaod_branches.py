@@ -170,7 +170,7 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
     
-    # os.system("curl -XPUT https://servicex/slateci.net/dpath/transform/" + str(id) + "/Transforming")
+    # os.system("curl -XPUT https://servicex.slateci.net/dpath/transform/" + str(id) + "/Transforming")
 
     branches = {}
     for attr_name in attr_name_list:
@@ -225,7 +225,7 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
 
     ROOT.xAOD.ClearTransientTrees()
     
-    # os.system("curl -XPUT https://servicex/slateci.net/dpath/transform/" + str(id) + "/Transformed")
+    # os.system("curl -XPUT https://servicex.slateci.net/dpath/transform/" + str(id) + "/Transformed")
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
