@@ -11,6 +11,7 @@ from kafka import KafkaProducer
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 kafka_brokers = ['servicex-kafka.kafka.svc.cluster.local:9092']
+chunk_size = 500
 
 
 
@@ -19,23 +20,24 @@ def connect_kafka_producer(brokers):
     try:
         _producer = KafkaProducer(bootstrap_servers=brokers,
                                   api_version=(0, 10))
+        print("Kafka connected successfully")
     except Excception as ex:
         print("Exception while connecting Kafka")
-        # print(ex)
+        raise
     finally:
         return _producer
 
 
 
-def publish_message(producer_instance, topic_name, key, value_bytes):
+def publish_message(producer_instance, topic_name, key, value_buffer):
     try:
-        key_bytes = bytes(key, encoding='utf-8')
-        producer_instance.send(topic_name, key=key_bytes, value=value_bytes)
+        producer_instance.send(topic_name, key=str(key),
+                               value=value_buffer.to_pybytes())
         producer_instance.flush()
         print("Message published successfully")
     except Exception as ex:
         print("Exception in publishing message")
-        # print(ex)
+        raise
 
 
 
@@ -168,7 +170,7 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
     
-    os.system("curl -XPUT https://servicex/slateci.net/dpath/transform/" + str(id) + "/Transforming")
+    # os.system("curl -XPUT https://servicex/slateci.net/dpath/transform/" + str(id) + "/Transforming")
 
     branches = {}
     for attr_name in attr_name_list:
@@ -197,7 +199,7 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
 
     producer = connect_kafka_producer(kafka_brokers)
     pa_table = awkward.toarrow(object_table)
-    batches = pa_table.to_batches()
+    batches = pa_table.to_batches(chunksize=chunk_size)
     
     # TODO: batch number should be changed so it is unique for the request.
     batch_number = 0
@@ -207,7 +209,7 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
         writer.write_batch(batch)
         writer.close()
         publish_message(producer, topic_name='servicex', key=batch_number,
-                        value_bytes=sink.getvalue())
+                        value_buffer=sink.getvalue())
         batch_number += 1
     
     #object_table = awkward.fromarrow(pa_table)
@@ -223,7 +225,7 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
 
     ROOT.xAOD.ClearTransientTrees()
     
-    os.system("curl -XPUT https://servicex/slateci.net/dpath/transform/" + str(id) + "/Transformed")
+    # os.system("curl -XPUT https://servicex/slateci.net/dpath/transform/" + str(id) + "/Transformed")
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
