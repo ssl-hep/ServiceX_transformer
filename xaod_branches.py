@@ -6,6 +6,7 @@ import ROOT
 import numpy as np
 import pyarrow as pa
 import awkward
+import requests
 from kafka import KafkaProducer
 # import uproot_methods
 
@@ -170,7 +171,7 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
     
-    # os.system("curl -XPUT https://servicex.slateci.net/dpath/transform/" + str(id) + "/Transforming")
+    requests.put('https://servicex.slateci.net/dpath/transform/' + str(id) + '/Transforming', verify=False)
 
     branches = {}
     for attr_name in attr_name_list:
@@ -211,21 +212,10 @@ def write_branches_to_arrow(file_name, attr_name_list, id):
         publish_message(producer, topic_name='servicex', key=batch_number,
                         value_buffer=sink.getvalue())
         batch_number += 1
-    
-    #object_table = awkward.fromarrow(pa_table)
-    #new_object_table = object_table['Electrons_pt'] * object_table['Electrons_eta']
-    ## print(new_object_table.flatten())
-    
-    #v_particles = uproot_methods.TLorentzVectorArray.from_ptetaphi(
-        #object_table['Electrons_pt'], object_table['Electrons_eta'],
-        #object_table['Electrons_phi'], object_table['Electrons_e'],
-        #)
-    
-    #print(v_particles[v_particles.counts > 0][0].eta.tolist())
 
     ROOT.xAOD.ClearTransientTrees()
     
-    # os.system("curl -XPUT https://servicex.slateci.net/dpath/transform/" + str(id) + "/Transformed")
+    requests.put('https://servicex.slateci.net/dpath/transform/' + str(id) + '/Transformed', verify=False)
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
