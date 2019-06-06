@@ -35,6 +35,9 @@ From here you can:
 ```
 2. Follow a topic to print the binary (opaque) data to the console:
 ```bash
-% bin/kafka-console-consumer.sh --bootstrap-server servicex-kafka.kafka.svc.cluster.local:9092 --topic servicex
+% bin/kafka-console-consumer.sh --bootstrap-server servicex-kafka:9092 --topic servicex
 ```
-
+3. See the size of the topic:
+```bash
+% bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list servicex-kafka:9092 --topic servicex --time -1 --offsets 1
+```
