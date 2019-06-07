@@ -120,10 +120,7 @@ write_branches_to_arrow () {
             echo recieved request: $_request_id columns: $_columns
             
             python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow($_file_path, $_columns, $_id))"
-            
-            break
         else
-            echo Goodbye world!
             sleep 10
         fi
         
