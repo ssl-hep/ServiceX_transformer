@@ -105,7 +105,6 @@ write_branches_to_arrow () {
         
         if [ "$rpath_output" != false ]
         then
-            echo Hello world!
             _id=$(echo $rpath_output | jq '._id')
             _request_id=$(echo $rpath_output | jq -r '._source.req_id')
             _file_path=$(echo $rpath_output | jq '._source.file_path')
@@ -119,12 +118,12 @@ write_branches_to_arrow () {
             
             echo recieved request: $_request_id columns: $_columns
             
-            python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow($_file_path, $_columns, $_id))"
+            python -c "import xaod_branches; xaod_branches.write_branches_to_arrow($_file_path, $_columns, $_id)"
         else
             sleep 10
         fi
         
-        # python -c "import xaod_branches; list(xaod_branches.write_branches_to_arrow(\"$file\", $attr_list, 1))"
+        # python -c "import xaod_branches; xaod_branches.write_branches_to_arrow(\"$file\", $attr_list, 1)"
     done
 }
 
