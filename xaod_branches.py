@@ -165,14 +165,14 @@ def write_branches_to_ntuple(file_name, attr_name_list):
 
 
 def write_branches_to_arrow(file_name, attr_name_list, id):
+    requests.put('https://servicex.slateci.net/dpath/transform/' + str(id) + '/Transforming', verify=False)
+
     sw = ROOT.TStopwatch()
     sw.Start()
     
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
     
-    requests.put('https://servicex.slateci.net/dpath/transform/' + str(id) + '/Transforming', verify=False)
-
     branches = {}
     for attr_name in attr_name_list:
         if not attr_name.split('.')[0] in branches:
