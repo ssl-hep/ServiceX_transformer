@@ -57,6 +57,7 @@ spec:
           limits:
             memory: "1500Mi"
           requests:
+            cpu: "100m"
             memory: "750Mi"
         command: ["./run_x509_updater.sh"]
         volumeMounts:
