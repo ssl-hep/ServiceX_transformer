@@ -38,6 +38,11 @@ spec:
       - name: transformer
         image: sslhep/servicex-transformer:latest
         imagePullPolicy: "Always"
+        resources:
+          limits:
+            memory: "1000Mi"
+          requests:
+            memory: "500Mi"
         command: ["./xaod_branches.sh"]
         env:
         - name: PYTHONUNBUFFERED
@@ -55,6 +60,11 @@ spec:
       - name: x509
         image: sslhep/servicex-transformer:latest
         imagePullPolicy: "Always"
+        resources:
+          limits:
+            memory: "1500Mi"
+          requests:
+            memory: "750Mi"
         command: ["./run_x509_updater.sh"]
         volumeMounts:
         - name: x509-data
