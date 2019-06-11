@@ -16,12 +16,6 @@ spec:
         app: transformer
     spec:
       volumes:
-      # - name: conf-volume
-      #   secret:
-      #     secretName: config
-      #     items:
-      #     - key: conf
-      #       path: config.json  
       - name: x509-data
         emptyDir: {}
       - name: x509-certs-volume
@@ -42,14 +36,13 @@ spec:
           limits:
             memory: "1000Mi"
           requests:
+            cpu: "100m"
             memory: "500Mi"
         command: ["./xaod_branches.sh"]
         env:
         - name: PYTHONUNBUFFERED
           value: "0"
         volumeMounts:
-        # - name: conf-volume
-        #   mountPath: "/usr/src/app/config/"
         - name: x509-data
           mountPath: "/etc/grid-security/"
           readOnly: false
