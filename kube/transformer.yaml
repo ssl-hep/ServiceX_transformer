@@ -36,7 +36,7 @@ spec:
           limits:
             memory: "1000Mi"
           requests:
-            cpu: "100m"
+            cpu: "500m"
             memory: "500Mi"
         command: ["./xaod_branches.sh"]
         env:
