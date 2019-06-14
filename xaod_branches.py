@@ -11,8 +11,13 @@ from kafka import KafkaProducer
 # import uproot_methods
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
-kafka_brokers = ['servicex-kafka.kafka.svc.cluster.local:9092']
-chunk_size = 500
+kafka_brokers = ['servicex-kafka-0.slateci.net:19092',
+                 'servicex-kafka-1.slateci.net:19092',
+                 'servicex-kafka-2.slateci.net:19092']
+
+# How many events to include in each Kafka message. This needs to be small
+# enough to keep below the broker and consumer max bytes
+chunk_size = 5000
 
 
 
