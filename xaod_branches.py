@@ -174,7 +174,7 @@ def write_branches_to_arrow():
     while True:
         rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
         
-        if not rpath_output == 'false':
+        if not rpath_output.text == 'false':
             _id = rpath_output.json()['_id']
             _file_path = rpath_output.json()['_source']['file_path']
             _request_id = rpath_output.json()['_source']['req_id']            
