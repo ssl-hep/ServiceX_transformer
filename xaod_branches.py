@@ -177,7 +177,7 @@ def write_branches_to_arrow():
         if not rpath_output.text == 'false':
             _id = rpath_output.json()['_id']
             _file_path = rpath_output.json()['_source']['file_path']
-            _request_id = rpath_output.json()['_source']['req_id']            
+            _request_id = rpath_output.json()['_source']['req_id']
             print("Received ID: " + _id + ", path: " + _file_path)
             
             request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
@@ -235,7 +235,7 @@ def write_branches_to_arrow():
 
             ROOT.xAOD.ClearTransientTrees()
             
-            requests.put('https://servicex.slateci.net/dpath/transform/' + str(_request_id) + '/Transformed', verify=False)
+            requests.put('https://servicex.slateci.net/dpath/transform/' + _id + '/Transformed', verify=False)
 
             sw.Stop()
             print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")

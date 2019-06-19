@@ -99,6 +99,8 @@ write_branches_to_arrow () {
     done
     attr_list="${attr_list}]"
     
+    export PYTHONWARNINGS="ignore:Unverified HTTPS request"
+    
     python -c "import xaod_branches; xaod_branches.write_branches_to_arrow()"
     # python -c "import xaod_branches; xaod_branches.write_branches_to_locally(\"$file\", $attr_list, 1)"
 }
