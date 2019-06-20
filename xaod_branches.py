@@ -60,16 +60,16 @@ def make_event_table(tree, branches):
                   + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
 
         particles = {}
-        full_event = []
+        full_event = {}
         for branch_name in branches:
+            full_event[branch_name] = []
             particles[branch_name] = getattr(tree, branch_name)
             for i in xrange(particles[branch_name].size()):
                 particle = particles[branch_name].at(i)
                 single_particle_attr = {}
                 for a_name in branches[branch_name]:
-                    attr_name = branch_name + '.' + a_name
-                    exec('single_particle_attr[attr_name] = particle.' + a_name)
-                full_event.append(single_particle_attr)
+                    exec('single_particle_attr[a_name] = particle.' + a_name)
+                full_event[branch_name].append(single_particle_attr)
 
         yield full_event
 
@@ -181,7 +181,7 @@ def write_branches_to_arrow():
             print("Received ID: " + _id + ", path: " + _file_path)
             
             request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
-            attr_name_list = request_output.json()['_source']['columns']            
+            attr_name_list = request_output.json()['_source']['columns']
             print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
         
             # requests.put('https://servicex.slateci.net/dpath/transform/' + str(_request_id) + '/Transforming', verify=False)
@@ -206,17 +206,29 @@ def write_branches_to_arrow():
                 tree_in.SetBranchStatus(branch_name, 1)
 
             object_array = awkward.fromiter(make_event_table(tree_in, branches))
-
+            
             table_def = "awkward.Table("
             for attr_name in attr_name_list[:-1]:
-                table_def = (table_def + attr_name.split('.')[0] + '_'
-                            + attr_name.split('.')[1].strip('()') + "=object_array['"
-                            + attr_name + "'], ")
-            table_def = (table_def + attr_name_list[-1].split('.')[0] + '_'
-                        + attr_name_list[-1].split('.')[1].strip('()')
-                        + "=object_array['" + attr_name_list[-1] + "'])")
+                branch_name = attr_name.split('.')[0]
+                a_name = attr_name.split('.')[1]
+                table_def = (table_def + branch_name + '_' + a_name.strip('()')
+                             + "=object_array['" + branch_name + "']['"
+                             + a_name + "'], ")
+            last_branch_name = attr_name_list[-1].split('.')[0]
+            last_a_name = attr_name_list[-1].split('.')[1]
+            table_def = (table_def + last_branch_name + '_' + last_a_name.strip('()')
+                         + "=object_array['" + last_branch_name + "']['"
+                         + last_a_name + "'])")
             object_table = eval(table_def)
-            # object_table = awkward.Table(Electrons_pt=object_array['Electrons.pt()'], Electrons_eta=object_array['Electrons.eta()'], Electrons_phi=object_array['Electrons.phi()'], Electrons_e=object_array['Electrons.e()'])
+            
+            # object_table = awkward.Table(Electrons_pt=object_array['Electrons']['pt()'],
+                                         # Electrons_eta=object_array['Electrons']['eta()'],
+                                         # Electrons_phi=object_array['Electrons']['phi()'],
+                                         # Electrons_e=object_array['Electrons']['e()'],
+                                         # Muons_pt=object_array['Muons']['pt()'],
+                                         # Muons_eta=object_array['Muons']['eta()'],
+                                         # Muons_phi=object_array['Muons']['phi()'],
+                                         # Muons_e=object_array['Muons']['e()'])
 
             producer = connect_kafka_producer(kafka_brokers)
             pa_table = awkward.toarrow(object_table)
