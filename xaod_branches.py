@@ -247,7 +247,7 @@ def write_branches_to_arrow():
 
             ROOT.xAOD.ClearTransientTrees()
             
-            requests.put('https://servicex.slateci.net/dpath/transform/' + _id + '/Transformed', verify=False)
+            requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)
 
             sw.Stop()
             print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
