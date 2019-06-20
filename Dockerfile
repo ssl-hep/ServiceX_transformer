@@ -47,5 +47,3 @@ RUN source /home/atlas/release_setup.sh; \
     requests \
     pyarrow \
     kafka
-
-# CMD xaod_branches.sh
