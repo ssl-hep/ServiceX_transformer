@@ -70,17 +70,13 @@ if __name__ == "__main__":
             requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Validated', verify=False)
 
         else:
-            # deletes all files
-
+            # fails all files
+            while True:
+                path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+                pat = path_res.json()
+                if not pat:
+                    break
+                path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Failed', verify=False)
+                print('path:', pat['_id'], 'failing:', path_res.status_code)
             # sets request to "Failed"
             requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Failed', verify=False)
-
-        # if not rpath_output.text == 'false':
-        #     _id = rpath_output.json()['_id']
-        #     _file_path = rpath_output.json()['_source']['file_path']
-        #     _request_id = rpath_output.json()['_source']['req_id']
-        #     print("Received ID: " + _id + ", path: " + _file_path)
-
-        #     request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
-        #     attr_name_list = request_output.json()['_source']['columns']
-        #     print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
