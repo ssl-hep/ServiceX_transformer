@@ -4,17 +4,16 @@
 # if request valid (all branches exist) it sets request state to Defined
 # if not it sets state to Failed, deletes all the paths belonging to that request.
 
-import os
+import time
 import ROOT
 import requests
-import time
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
 
 def validate_branches(file_name, branch_names):
     print('validating file:', file_name, 'for branches:', branch_names)
-    return True
+    return (True, 'Validated OK')
     # file_in = ROOT.TFile.Open(file_name)
     # tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
@@ -55,7 +54,7 @@ if __name__ == "__main__":
         print(pat)
 
         # checks the file
-        valid = validate_branches(pat['_source']['file_path'], branches)
+        (valid, info) = validate_branches(pat['_source']['file_path'], branches)
 
         if valid:
             # sets all the files to "Validated"
@@ -67,7 +66,7 @@ if __name__ == "__main__":
                 path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Validated', verify=False)
                 print('path:', pat['_id'], 'validation:', path_res.status_code)
             # sets request to "Validated"
-            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Validated', verify=False)
+            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Validated/' + info, verify=False)
 
         else:
             # fails all files
