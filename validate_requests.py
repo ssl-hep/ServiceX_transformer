@@ -13,6 +13,7 @@ ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
 
 def validate_branches(file_name, branch_names):
+    print('validating file:', file_name, 'for branches:', branch_names)
     return True
     # file_in = ROOT.TFile.Open(file_name)
     # tree_in = ROOT.xAOD.MakeTransientTree(file_in)
@@ -36,37 +37,43 @@ if __name__ == "__main__":
 
         # gets request in Created
         req_resp = requests.get('https://servicex.slateci.net/drequest/status/LookedUp', verify=False)
-        if req_resp.text == 'false':
+        req = req_resp.json()
+        if not req:
             time.sleep(10)
             continue
-        print(req_resp.text)
+        print(req)
+
+        req_id = req['_id']
+        branches = req['_source']['columns']
 
         # gets one file belonging to this request
-        path_res = requests.get('https://servicex.slateci.net/dpath/' + rid + '/Created', verify=False)
-        if path_res.text == 'false':
+        path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+        pat = path_res.json()
+        if not pat:
             time.sleep(10)
             continue
-        print(path_res.text)
+        print(pat)
 
         # checks the file
-        valid = validate_branches("filename", []):
+        valid = validate_branches(pat['_source']['file_path'], branches)
 
         if valid:
             # sets all the files to "Validated"
-            notDone = True
-            while(notDone):
-                # path_res = requests.get('https://servicex.slateci.net/dpath/'+rid+'/Created', verify=False)
-                # path_res = requests.put('https://servicex.slateci.net/dpath/status/'+rid+'/Created', verify=False)
-                notDone = False
+            while True:
+                path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+                pat = path_res.json()
+                if not pat:
+                    break
+                path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Validated', verify=False)
+                print('path:', pat['_id'], 'validation:', path_res.status_code)
             # sets request to "Validated"
-            # requests.put('https://servicex.slateci.net/drequest/status/' + rid + '/Validated', verify=False)
+            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Validated', verify=False)
 
         else:
             # deletes all files
 
             # sets request to "Failed"
-            # requests.put('https://servicex.slateci.net/drequest/status/' + rid + '/Failed', verify=False)
-            pass
+            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Failed', verify=False)
 
         # if not rpath_output.text == 'false':
         #     _id = rpath_output.json()['_id']
