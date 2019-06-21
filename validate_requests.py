@@ -36,10 +36,13 @@ if __name__ == "__main__":
 
         # gets request in Created
         req_resp = requests.get('https://servicex.slateci.net/drequest/status/LookedUp', verify=False)
-        req = req_resp.json()
-        if not req:
+        try:
+            req = req_resp.json()
+        except ValueError:
+            print("Decoding request response failed. Cont.")
             time.sleep(10)
             continue
+
         print(req)
 
         req_id = req['_id']
@@ -47,10 +50,13 @@ if __name__ == "__main__":
 
         # gets one file belonging to this request
         path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
-        pat = path_res.json()
-        if not pat:
+        try:
+            pat = path_res.json()
+        except ValueError:
+            print("Decoding path response failed. Cont.")
             time.sleep(10)
             continue
+
         print(pat)
 
         # checks the file
