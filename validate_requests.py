@@ -42,7 +42,8 @@ if __name__ == "__main__":
             print("Decoding request response failed. Cont.")
             time.sleep(10)
             continue
-
+        if !req:
+            continue
         print(req)
 
         req_id = req['_id']
@@ -57,6 +58,8 @@ if __name__ == "__main__":
             time.sleep(10)
             continue
 
+        if !pat:
+            continue
         print(pat)
 
         # checks the file
