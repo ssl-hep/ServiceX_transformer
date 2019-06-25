@@ -241,7 +241,7 @@ def write_branches_to_arrow():
                 writer = pa.RecordBatchStreamWriter(sink, batch.schema)
                 writer.write_batch(batch)
                 writer.close()
-                publish_message(producer, topic_name='servicex', key=batch_number,
+                publish_message(producer, topic_name=_request_id, key=batch_number,
                                 value_buffer=sink.getvalue())
                 batch_number += 1
 
