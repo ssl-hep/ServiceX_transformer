@@ -42,7 +42,7 @@ if __name__ == "__main__":
             print("Decoding request response failed. Cont.")
             time.sleep(10)
             continue
-        if !req:
+        if not req:
             continue
         print(req)
 
@@ -58,7 +58,7 @@ if __name__ == "__main__":
             time.sleep(10)
             continue
 
-        if !pat:
+        if not pat:
             continue
         print(pat)
 
