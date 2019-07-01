@@ -243,6 +243,7 @@ def write_branches_to_arrow():
                 writer.close()
                 publish_message(producer, topic_name=_request_id, key=batch_number,
                                 value_buffer=sink.getvalue())
+                print("Batch number " + str(batch_number) + ", " + str(chunk_size) + " events published to " + _request_id)
                 batch_number += 1
 
             ROOT.xAOD.ClearTransientTrees()
