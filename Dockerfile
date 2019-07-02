@@ -46,4 +46,5 @@ RUN source /home/atlas/release_setup.sh; \
     awkward==0.10.2 \
     requests \
     pyarrow \
-    kafka
+    kafka \
+    confluent_kafka
