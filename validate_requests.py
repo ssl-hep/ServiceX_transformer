@@ -34,6 +34,11 @@ def validate_branches(file_name, branch_names):
     
     valid = True
     for branch_name in branch_names:
+        if '.' not in branch_name:
+            print(branch_name + " is not valid collection + attribute")
+            valid = False
+            break
+        
         branch = branch_name.split('.')[0].strip(' ')
         attr = branch_name.split('.')[1].strip('()')
         for i_evt in range(10):
