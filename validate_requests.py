@@ -28,9 +28,7 @@ def validate_branches(file_name, branch_names):
     # file_in = ROOT.TFile.Open('AOD.11182705._000001.pool.root.1')
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
-    tree_in.GetEntry(0)
 
-    valid = True
     for branch_name in branch_names:
         if '.' not in branch_name:
             print(branch_name + " is not valid collection + attribute")
@@ -110,7 +108,7 @@ if __name__ == "__main__":
                 if not pat:
                     break
                 path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Validated', verify=False)
-                print('path: ' + pat['_id'] + ' validation: ' + path_res.status_code)
+                print('path: ' + pat['_id'] + ' validation: ' + str(path_res.status_code))
             # sets request to "Validated"
             requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Validated/' + info, verify=False)
 
