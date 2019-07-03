@@ -13,16 +13,14 @@ from confluent_kafka.admin import AdminClient, NewTopic
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
 
-
 CONFIG = {
-   'bootstrap.servers': 'servicex-kafka-1.slateci.net:19092',
-   'group.id': 'monitor',
-   'client.id': 'monitor',
-   'session.timeout.ms': 5000,
+    'bootstrap.servers': 'servicex-kafka-1.slateci.net:19092',
+    'group.id': 'monitor',
+    'client.id': 'monitor',
+    'session.timeout.ms': 5000,
 }
 
 ADMIN = AdminClient(CONFIG)
-
 
 
 def validate_branches(file_name, branch_names):
@@ -31,14 +29,13 @@ def validate_branches(file_name, branch_names):
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
     tree_in.GetEntry(0)
-    
+
     valid = True
     for branch_name in branch_names:
         if '.' not in branch_name:
             print(branch_name + " is not valid collection + attribute")
-            valid = False
-            break
-        
+            return(False, "Not valid collection.attribute")
+
         branch = branch_name.split('.')[0].strip(' ')
         attr = branch_name.split('.')[1].strip('()')
         for i_evt in range(10):
@@ -48,17 +45,12 @@ def validate_branches(file_name, branch_names):
                 if particles.size() >= 1:
                     if not attr in dir(particles.at(0)):
                         print(attr + " is not an attribute of " + branch)
-                        valid = False
+                        return(False, attr + " is not an attribute of " + branch)
                     break
             except:
-                valid = False
-                break
-        
-        if not valid:
-            break
-    
-    return(valid, "Validated OK")
-    
+                return(False, "No collection with name:" + branch)
+
+    return(True, "Validated OK")
 
 
 def create_kafka_topic(admin, topic):
@@ -77,7 +69,6 @@ def create_kafka_topic(admin, topic):
                 return False
 
 
-
 if __name__ == "__main__":
     while True:
         # gets request in Created
@@ -91,10 +82,10 @@ if __name__ == "__main__":
         if not req:
             continue
         # print(req)
-        
+
         req_id = req['_id']
         branches = req['_source']['columns']
-        
+
         # gets one file belonging to this request
         path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
         try:
@@ -103,14 +94,14 @@ if __name__ == "__main__":
             print("Decoding path response failed. Cont.")
             time.sleep(10)
             continue
-        
+
         if not pat:
             continue
         # print(pat)
-        
+
         # checks the file
         (valid, info) = validate_branches(pat['_source']['file_path'], branches)
-        
+
         if valid:
             # sets all the files to "Validated"
             while True:
@@ -122,9 +113,9 @@ if __name__ == "__main__":
                 print('path: ' + pat['_id'] + ' validation: ' + path_res.status_code)
             # sets request to "Validated"
             requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Validated/' + info, verify=False)
-            
+
             create_kafka_topic(ADMIN, req_id)
-            
+
         else:
             # fails all files
             while True:
@@ -135,4 +126,4 @@ if __name__ == "__main__":
                 path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Failed', verify=False)
                 print('path: ' + pat['_id'] + ' failing: ' + str(path_res.status_code))
             # sets request to "Failed"
-            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Failed', verify=False)
+            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Failed/' + info, verify=False)
