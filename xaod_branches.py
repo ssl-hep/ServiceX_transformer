@@ -91,7 +91,7 @@ def print_branches(file_name, branch_name):
     if particles.size() >= 1:
         for method_name in dir(particles.at(0)):
             print(method_name)
-    
+
     ROOT.gROOT.ProcessLine("gSystem->RedirectOutput(0);")
 
 
@@ -99,7 +99,7 @@ def print_branches(file_name, branch_name):
 def write_branches_to_ntuple(file_name, attr_name_list):
     sw = ROOT.TStopwatch()
     sw.Start()
-    
+
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
@@ -114,7 +114,7 @@ def write_branches_to_ntuple(file_name, attr_name_list):
     tree_in.SetBranchStatus('EventInfo', 1)
     for branch_name in branches:
         tree_in.SetBranchStatus(branch_name, 1)
-    
+
     n_entries = tree_in.GetEntries()
     print("Total entries: " + str(n_entries))
 
@@ -157,13 +157,13 @@ def write_branches_to_ntuple(file_name, attr_name_list):
                 for i in xrange(particle_attr[branch_name]):
                     particle = particles[branch_name].at(i)
                     exec('particle_attr[attr_name].push_back(particle.' + a_name + ')')
-        
+
         tree_out.Fill()
 
     file_out.Write()
     file_out.Close()
     ROOT.xAOD.ClearTransientTrees()
-    
+
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
@@ -173,25 +173,25 @@ def write_branches_to_ntuple(file_name, attr_name_list):
 def write_branches_to_arrow():
     while True:
         rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
-        
+
         if not rpath_output.text == 'false':
             _id = rpath_output.json()['_id']
             _file_path = rpath_output.json()['_source']['file_path']
             _request_id = rpath_output.json()['_source']['req_id']
             print("Received ID: " + _id + ", path: " + _file_path)
-            
+
             request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
             attr_name_list = request_output.json()['_source']['columns']
             print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
-        
+
             # requests.put('https://servicex.slateci.net/dpath/transform/' + str(_request_id) + '/Transforming', verify=False)
 
             sw = ROOT.TStopwatch()
             sw.Start()
-            
+
             file_in = ROOT.TFile.Open(_file_path)
             tree_in = ROOT.xAOD.MakeTransientTree(file_in)
-            
+
             branches = {}
             for attr_name in attr_name_list:
                 attr_name = str(attr_name)
@@ -199,14 +199,14 @@ def write_branches_to_arrow():
                     branches[attr_name.split('.')[0]] = [attr_name.split('.')[1]]
                 else:
                     branches[attr_name.split('.')[0]].append(attr_name.split('.')[1])
-            
+
             tree_in.SetBranchStatus('*', 0)
             tree_in.SetBranchStatus('EventInfo', 1)
             for branch_name in branches:
                 tree_in.SetBranchStatus(branch_name, 1)
 
             object_array = awkward.fromiter(make_event_table(tree_in, branches))
-            
+
             table_def = "awkward.Table("
             for attr_name in attr_name_list[:-1]:
                 branch_name = attr_name.split('.')[0]
@@ -220,7 +220,7 @@ def write_branches_to_arrow():
                          + "=object_array['" + last_branch_name + "']['"
                          + last_a_name + "'])")
             object_table = eval(table_def)
-            
+
             # object_table = awkward.Table(Electrons_pt=object_array['Electrons']['pt()'],
                                          # Electrons_eta=object_array['Electrons']['eta()'],
                                          # Electrons_phi=object_array['Electrons']['phi()'],
@@ -233,8 +233,8 @@ def write_branches_to_arrow():
             producer = connect_kafka_producer(kafka_brokers)
             pa_table = awkward.toarrow(object_table)
             batches = pa_table.to_batches(chunksize=chunk_size)
-            
-            # TODO: batch number should be changed so it is unique for the request.
+
+            # TODO: Rewrite loop so creation of object_array, etc. per batch
             batch_number = 0
             for batch in batches:
                 sink = pa.BufferOutputStream()
@@ -245,9 +245,10 @@ def write_branches_to_arrow():
                                 value_buffer=sink.getvalue())
                 print("Batch number " + str(batch_number) + ", " + str(chunk_size) + " events published to " + _request_id)
                 batch_number += 1
+                requests.put('https://servicex.slateci.net/drequest/events_served/' + topic + '/' + str(n_events), verify=False)
 
             ROOT.xAOD.ClearTransientTrees()
-            
+
             requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)
 
             sw.Stop()
