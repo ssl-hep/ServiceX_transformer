@@ -73,7 +73,7 @@ def make_event_table(tree, branches):
 
         yield full_event
 
-        # if j_entry == 5: break
+        # if j_entry == 6000: break
 
 
 
@@ -105,10 +105,10 @@ def write_branches_to_ntuple(file_name, attr_name_list):
 
     branches = {}
     for attr_name in attr_name_list:
-        if not attr_name.split('.')[0] in branches:
-            branches[attr_name.split('.')[0]] = [attr_name.split('.')[1]]
+        if not attr_name.split('.')[0].strip(' ') in branches:
+            branches[attr_name.split('.')[0].strip(' ')] = [attr_name.split('.')[1]]
         else:
-            branches[attr_name.split('.')[0]].append(attr_name.split('.')[1])
+            branches[attr_name.split('.')[0].strip(' ')].append(attr_name.split('.')[1])
 
     tree_in.SetBranchStatus('*', 0)
     tree_in.SetBranchStatus('EventInfo', 1)
@@ -136,7 +136,7 @@ def write_branches_to_ntuple(file_name, attr_name_list):
             )
     for attr_name in attr_name_list:
         b_particle_attr[attr_name] = tree_out.Branch(
-            attr_name.split('.')[0] + '_' + attr_name.split('.')[1].strip('()'),
+            attr_name.split('.')[0].strip(' ') + '_' + attr_name.split('.')[1].strip('()'),
             particle_attr[attr_name]
             )
 
@@ -195,10 +195,10 @@ def write_branches_to_arrow():
             branches = {}
             for attr_name in attr_name_list:
                 attr_name = str(attr_name)
-                if not attr_name.split('.')[0] in branches:
-                    branches[attr_name.split('.')[0]] = [attr_name.split('.')[1]]
+                if not attr_name.split('.')[0].strip(' ') in branches:
+                    branches[attr_name.split('.')[0].strip(' ')] = [attr_name.split('.')[1]]
                 else:
-                    branches[attr_name.split('.')[0]].append(attr_name.split('.')[1])
+                    branches[attr_name.split('.')[0].strip(' ')].append(attr_name.split('.')[1])
 
             tree_in.SetBranchStatus('*', 0)
             tree_in.SetBranchStatus('EventInfo', 1)
@@ -209,12 +209,12 @@ def write_branches_to_arrow():
 
             table_def = "awkward.Table("
             for attr_name in attr_name_list[:-1]:
-                branch_name = attr_name.split('.')[0]
+                branch_name = attr_name.split('.')[0].strip(' ')
                 a_name = attr_name.split('.')[1]
                 table_def = (table_def + branch_name + '_' + a_name.strip('()')
                              + "=object_array['" + branch_name + "']['"
                              + a_name + "'], ")
-            last_branch_name = attr_name_list[-1].split('.')[0]
+            last_branch_name = attr_name_list[-1].split('.')[0].strip(' ')
             last_a_name = attr_name_list[-1].split('.')[1]
             table_def = (table_def + last_branch_name + '_' + last_a_name.strip('()')
                          + "=object_array['" + last_branch_name + "']['"
@@ -243,9 +243,9 @@ def write_branches_to_arrow():
                 writer.close()
                 publish_message(producer, topic_name=_request_id, key=batch_number,
                                 value_buffer=sink.getvalue())
-                print("Batch number " + str(batch_number) + ", " + str(chunk_size) + " events published to " + _request_id)
+                print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
                 batch_number += 1
-                requests.put('https://servicex.slateci.net/drequest/events_served/' + topic + '/' + str(n_events), verify=False)
+                requests.put('https://servicex.slateci.net/drequest/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
 
             ROOT.xAOD.ClearTransientTrees()
 
