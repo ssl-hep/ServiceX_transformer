@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 # Set up ROOT, uproot, and RootCore:
+import math
+from __future__ import division
 import os
 import ROOT
 import numpy as np
@@ -18,7 +20,7 @@ kafka_brokers = ['servicex-kafka-0.slateci.net:19092',
 
 # How many events to include in each Kafka message. This needs to be small
 # enough to keep below the broker and consumer max bytes
-chunk_size = 5000
+chunk_size = 1000
 
 
 
@@ -48,11 +50,8 @@ def publish_message(producer_instance, topic_name, key, value_buffer):
 
 
 
-def make_event_table(tree, branches):
-    n_entries = tree.GetEntries()
-    print("Total entries: " + str(n_entries))
-
-    for j_entry in xrange(n_entries):
+def make_event_table(tree, branches, f_evt, l_evt):
+    for j_entry in xrange(f_evt, l_evt):
         tree.GetEntry(j_entry)
         if j_entry % 1000 == 0:
             print("Processing run #" + str(tree.EventInfo.runNumber())
@@ -204,48 +203,60 @@ def write_branches_to_arrow():
             tree_in.SetBranchStatus('EventInfo', 1)
             for branch_name in branches:
                 tree_in.SetBranchStatus(branch_name, 1)
+            
+            n_entries = tree_in.GetEntries()
+            print("Total entries: " + str(n_entries))
+            
+            n_chunks = math.ceil(n_entries / chunk_size)
+            for i_chunk in xrange(n_chunks):
+                first_event = i_chunk * chunk_size
+                last_event = min((i_chunk + 1) * chunk_size, n_entries)
 
-            object_array = awkward.fromiter(make_event_table(tree_in, branches))
+                object_array = awkward.fromiter(
+                    make_event_table(tree_in, branches, first_event, last_event)
+                    )
 
-            table_def = "awkward.Table("
-            for attr_name in attr_name_list[:-1]:
-                branch_name = attr_name.split('.')[0].strip(' ')
-                a_name = attr_name.split('.')[1]
-                table_def = (table_def + branch_name + '_' + a_name.strip('()')
-                             + "=object_array['" + branch_name + "']['"
-                             + a_name + "'], ")
-            last_branch_name = attr_name_list[-1].split('.')[0].strip(' ')
-            last_a_name = attr_name_list[-1].split('.')[1]
-            table_def = (table_def + last_branch_name + '_' + last_a_name.strip('()')
-                         + "=object_array['" + last_branch_name + "']['"
-                         + last_a_name + "'])")
-            object_table = eval(table_def)
+                table_def = "awkward.Table("
+                for attr_name in attr_name_list[:-1]:
+                    branch_name = attr_name.split('.')[0].strip(' ')
+                    a_name = attr_name.split('.')[1]
+                    table_def = (table_def + branch_name + '_' + a_name.strip('()')
+                                + "=object_array['" + branch_name + "']['"
+                                + a_name + "'], ")
+                last_branch_name = attr_name_list[-1].split('.')[0].strip(' ')
+                last_a_name = attr_name_list[-1].split('.')[1]
+                table_def = (table_def + last_branch_name + '_' + last_a_name.strip('()')
+                            + "=object_array['" + last_branch_name + "']['"
+                            + last_a_name + "'])")
+                object_table = eval(table_def)
 
-            # object_table = awkward.Table(Electrons_pt=object_array['Electrons']['pt()'],
-                                         # Electrons_eta=object_array['Electrons']['eta()'],
-                                         # Electrons_phi=object_array['Electrons']['phi()'],
-                                         # Electrons_e=object_array['Electrons']['e()'],
-                                         # Muons_pt=object_array['Muons']['pt()'],
-                                         # Muons_eta=object_array['Muons']['eta()'],
-                                         # Muons_phi=object_array['Muons']['phi()'],
-                                         # Muons_e=object_array['Muons']['e()'])
+                # object_table = awkward.Table(Electrons_pt=object_array['Electrons']['pt()'],
+                                            # Electrons_eta=object_array['Electrons']['eta()'],
+                                            # Electrons_phi=object_array['Electrons']['phi()'],
+                                            # Electrons_e=object_array['Electrons']['e()'],
+                                            # Muons_pt=object_array['Muons']['pt()'],
+                                            # Muons_eta=object_array['Muons']['eta()'],
+                                            # Muons_phi=object_array['Muons']['phi()'],
+                                            # Muons_e=object_array['Muons']['e()'])
 
-            producer = connect_kafka_producer(kafka_brokers)
-            pa_table = awkward.toarrow(object_table)
-            batches = pa_table.to_batches(chunksize=chunk_size)
+                producer = connect_kafka_producer(kafka_brokers)
+                pa_table = awkward.toarrow(object_table)
+                batches = pa_table.to_batches(chunksize=chunk_size)
 
-            # TODO: Rewrite loop so creation of object_array, etc. per batch
-            batch_number = 0
-            for batch in batches:
-                sink = pa.BufferOutputStream()
-                writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-                writer.write_batch(batch)
-                writer.close()
-                publish_message(producer, topic_name=_request_id, key=batch_number,
-                                value_buffer=sink.getvalue())
-                print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
-                batch_number += 1
-                requests.put('https://servicex.slateci.net/drequest/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
+                # Leaving this for now; currently batches is a list of size 1,
+                # but it gives us the flexibility to define an iterator over
+                # multiple batches in the future
+                batch_number = i_chunk * len(batches)
+                for batch in batches:
+                    sink = pa.BufferOutputStream()
+                    writer = pa.RecordBatchStreamWriter(sink, batch.schema)
+                    writer.write_batch(batch)
+                    writer.close()
+                    publish_message(producer, topic_name=_request_id, key=batch_number,
+                                    value_buffer=sink.getvalue())
+                    print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
+                    batch_number += 1
+                    requests.put('https://servicex.slateci.net/drequest/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
 
             ROOT.xAOD.ClearTransientTrees()
 
