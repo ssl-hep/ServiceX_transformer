@@ -1,8 +1,8 @@
 #!/usr/bin/env python
+from __future__ import division
 
 # Set up ROOT, uproot, and RootCore:
 import math
-from __future__ import division
 import os
 import ROOT
 import numpy as np
@@ -51,6 +51,7 @@ def publish_message(producer_instance, topic_name, key, value_buffer):
 
 
 def make_event_table(tree, branches, f_evt, l_evt):
+    n_entries = tree.GetEntries()
     for j_entry in xrange(f_evt, l_evt):
         tree.GetEntry(j_entry)
         if j_entry % 1000 == 0:
@@ -207,7 +208,7 @@ def write_branches_to_arrow():
             n_entries = tree_in.GetEntries()
             print("Total entries: " + str(n_entries))
             
-            n_chunks = math.ceil(n_entries / chunk_size)
+            n_chunks = int(math.ceil(n_entries / chunk_size))
             for i_chunk in xrange(n_chunks):
                 first_event = i_chunk * chunk_size
                 last_event = min((i_chunk + 1) * chunk_size, n_entries)
