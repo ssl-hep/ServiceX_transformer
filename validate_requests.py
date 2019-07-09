@@ -52,7 +52,7 @@ def validate_branches(file_name, branch_names):
 
 
 def create_kafka_topic(admin, topic):
-    new_topics = [NewTopic(topic, num_partitions=3, replication_factor=1)]
+    new_topics = [NewTopic(topic, num_partitions=100, replication_factor=1)]
     response = admin.create_topics(new_topics, request_timeout=15.0)
     for topic, res in response.items():
         try:
