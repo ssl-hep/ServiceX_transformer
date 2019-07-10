@@ -20,7 +20,7 @@ kafka_brokers = ['servicex-kafka-0.slateci.net:19092',
 
 # How many events to include in each Kafka message. This needs to be small
 # enough to keep below the broker and consumer max bytes
-chunk_size = 1000
+chunk_size = 500
 
 
 
