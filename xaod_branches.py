@@ -9,44 +9,14 @@ import numpy as np
 import pyarrow as pa
 import awkward
 import requests
-from kafka import KafkaProducer
 import time
+import messaging
 # import uproot_methods
 
+
+
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
-kafka_brokers = ['servicex-kafka-0.slateci.net:19092',
-                 'servicex-kafka-1.slateci.net:19092',
-                 'servicex-kafka-2.slateci.net:19092']
-
-# How many events to include in each Kafka message. This needs to be small
-# enough to keep below the broker and consumer max bytes
-chunk_size = 500
-
-
-
-def connect_kafka_producer(brokers):
-    _producer = None
-    try:
-        _producer = KafkaProducer(bootstrap_servers=brokers,
-                                  api_version=(0, 10))
-        print("Kafka connected successfully")
-    except Excception as ex:
-        print("Exception while connecting Kafka")
-        raise
-    finally:
-        return _producer
-
-
-
-def publish_message(producer_instance, topic_name, key, value_buffer):
-    try:
-        producer_instance.send(topic_name, key=str(key),
-                               value=value_buffer.to_pybytes())
-        producer_instance.flush()
-        print("Message published successfully")
-    except Exception as ex:
-        print("Exception in publishing message")
-        raise
+chunk_size = 500   # Events per Kafka message
 
 
 
@@ -204,10 +174,10 @@ def write_branches_to_arrow():
             tree_in.SetBranchStatus('EventInfo', 1)
             for branch_name in branches:
                 tree_in.SetBranchStatus(branch_name, 1)
-            
+
             n_entries = tree_in.GetEntries()
             print("Total entries: " + str(n_entries))
-            
+
             n_chunks = int(math.ceil(n_entries / chunk_size))
             for i_chunk in xrange(n_chunks):
                 first_event = i_chunk * chunk_size
@@ -240,7 +210,7 @@ def write_branches_to_arrow():
                                             # Muons_phi=object_array['Muons']['phi()'],
                                             # Muons_e=object_array['Muons']['e()'])
 
-                producer = connect_kafka_producer(kafka_brokers)
+                producer = messaging.connect_kafka_producer(messaging.kafka_brokers)
                 pa_table = awkward.toarrow(object_table)
                 batches = pa_table.to_batches(chunksize=chunk_size)
 
@@ -253,8 +223,9 @@ def write_branches_to_arrow():
                     writer = pa.RecordBatchStreamWriter(sink, batch.schema)
                     writer.write_batch(batch)
                     writer.close()
-                    publish_message(producer, topic_name=_request_id, key=batch_number,
-                                    value_buffer=sink.getvalue())
+                    messaging.publish_message(producer, topic_name=_request_id,
+                                              key=batch_number,
+                                              value_buffer=sink.getvalue())
                     print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
                     batch_number += 1
                     requests.put('https://servicex.slateci.net/drequest/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
