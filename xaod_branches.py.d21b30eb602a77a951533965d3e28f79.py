@@ -18,7 +18,7 @@ import messaging
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 chunk_size = 500   # Events per Kafka message
 
-m = messaging.Messaging()  
+m=messaging.Messaging()  
 
 
 def make_event_table(tree, branches, f_evt, l_evt):
@@ -211,7 +211,7 @@ def write_branches_to_arrow():
                                             # Muons_phi=object_array['Muons']['phi()'],
                                             # Muons_e=object_array['Muons']['e()'])
 
-                # producer = messaging.connect_kafka_producer(messaging.kafka_brokers)
+                producer = messaging.connect_kafka_producer(messaging.kafka_brokers)
                 pa_table = awkward.toarrow(object_table)
                 batches = pa_table.to_batches(chunksize=chunk_size)
 
@@ -224,18 +224,13 @@ def write_branches_to_arrow():
                     writer = pa.RecordBatchStreamWriter(sink, batch.schema)
                     writer.write_batch(batch)
                     writer.close()
-                    # messaging.publish_message(producer, topic_name=_request_id,
-                                            #   key=batch_number,
-                                            #   value_buffer=sink.getvalue())
-                    published = m.publish_message(_request_id, batch_number, sink.getvalue())
-                    if published:
-                        print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
-                        batch_number += 1
-                        requests.put('https://servicex.slateci.net/drequest/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
-                        requests.put('https://servicex.slateci.net/dpath/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
-                    else:
-                        print("not published. Waiting 180 seconds before retry.")
-                        time.sleep(180)
+                    messaging.publish_message(producer, topic_name=_request_id,
+                                              key=batch_number,
+                                              value_buffer=sink.getvalue())
+                    print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
+                    batch_number += 1
+                    requests.put('https://servicex.slateci.net/drequest/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
+
             ROOT.xAOD.ClearTransientTrees()
 
             requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)

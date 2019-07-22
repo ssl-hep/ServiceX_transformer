@@ -47,4 +47,5 @@ RUN source /home/atlas/release_setup.sh; \
     requests \
     pyarrow \
     kafka \
-    confluent_kafka
+    confluent_kafka \
+    redis
