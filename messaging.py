@@ -57,7 +57,7 @@ class Messaging:
         if self.backend == 'kafka':
             self.publish_message_kafka(topic_name, key, value_buffer)
         if self.backend == 'redis':
-            self.publish_message_redis(topic_name, key, value_buffer)
+            return self.publish_message_redis(topic_name, key, value_buffer)
 
     def publish_message_kafka(self, topic_name, key, value_buffer):
         try:
@@ -96,6 +96,7 @@ class Messaging:
 
         # add message
         self.client.xadd(request_id, {'pa': key, 'data': codecs.encode(value_buffer, 'bz2')})
+        return True
 
     def request_status_redis(self, request_id):
         try:
