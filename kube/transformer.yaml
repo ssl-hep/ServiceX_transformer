@@ -38,8 +38,7 @@ spec:
           requests:
             cpu: "500m"
             memory: "500Mi"
-        command: ["python"]
-        args: ["python xaod_branches.py"]
+        command: ["./xaod_branches.sh"]
         env:
         - name: PYTHONUNBUFFERED
           value: "0"

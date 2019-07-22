@@ -27,7 +27,7 @@ class Messaging:
             self.configure_kafka()
             print('Configured Kafka backend')
 
-    def configure_redis(self, host='redis.slateci.net', port=6379, max_messages_per_request=500):
+    def configure_redis(self, host='redis.slateci.net', port=6379, max_messages_per_request=5000):
         self.host = host
         self.port = port
         self.max_messages_per_request = max_messages_per_request

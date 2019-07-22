@@ -224,18 +224,15 @@ def write_branches_to_arrow():
                     writer = pa.RecordBatchStreamWriter(sink, batch.schema)
                     writer.write_batch(batch)
                     writer.close()
-                    # messaging.publish_message(producer, topic_name=_request_id,
-                                            #   key=batch_number,
-                                            #   value_buffer=sink.getvalue())
                     published = m.publish_message(_request_id, batch_number, sink.getvalue())
                     if published:
                         print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
                         batch_number += 1
                         requests.put('https://servicex.slateci.net/drequest/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
-                        requests.put('https://servicex.slateci.net/dpath/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
+                        requests.put('https://servicex.slateci.net/dpath/events_served/' + _id + '/' + str(batch.num_rows), verify=False)
                     else:
-                        print("not published. Waiting 180 seconds before retry.")
-                        time.sleep(180)
+                        print("not published. Waiting 10 seconds before retry.")
+                        time.sleep(10)
             ROOT.xAOD.ClearTransientTrees()
 
             requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)
