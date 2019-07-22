@@ -38,10 +38,13 @@ spec:
           requests:
             cpu: "500m"
             memory: "500Mi"
-        command: ["./xaod_branches.sh"]
+        command: ["python"]
+        args: ["python xaod_branches.py"]
         env:
         - name: PYTHONUNBUFFERED
           value: "0"
+        - name: PYTHONWARNINGS
+          value: "ignore:Unverified HTTPS request"
         volumeMounts:
         - name: x509-data
           mountPath: "/etc/grid-security/"

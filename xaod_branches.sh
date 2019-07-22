@@ -93,16 +93,8 @@ write_branches_to_ntuple () {
 
 
 write_branches_to_arrow () {
-    attr_list="["
-    for i in "${attr_array[@]}"; do
-        attr_list="${attr_list}\"${i}\", "
-    done
-    attr_list="${attr_list}]"
-    
     export PYTHONWARNINGS="ignore:Unverified HTTPS request"
-    
-    python -c "import xaod_branches; xaod_branches.write_branches_to_arrow()"
-    # python -c "import xaod_branches; xaod_branches.write_branches_to_locally(\"$file\", $attr_list, 1)"
+    python xaod_branches.py
 }
 
 

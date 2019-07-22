@@ -42,6 +42,8 @@ spec:
         env:
         - name: PYTHONUNBUFFERED
           value: "0"
+        - name: PYTHONWARNINGS
+          value: "ignore:Unverified HTTPS request"
         volumeMounts:
         - name: x509-data
           mountPath: "/etc/grid-security/"
