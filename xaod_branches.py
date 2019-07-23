@@ -142,100 +142,101 @@ def write_branches_to_ntuple(file_name, attr_name_list):
 
 
 def write_branches_to_arrow():
-    while True:
-        rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
+    
+    rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
 
-        if not rpath_output.text == 'false':
-            _id = rpath_output.json()['_id']
-            _file_path = rpath_output.json()['_source']['file_path']
-            _request_id = rpath_output.json()['_source']['req_id']
-            print("Received ID: " + _id + ", path: " + _file_path)
+    if rpath_output.text == 'false':
+        time.sleep(10)
+        return
 
-            request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
-            attr_name_list = request_output.json()['_source']['columns']
-            print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
+    _id = rpath_output.json()['_id']
+    _file_path = rpath_output.json()['_source']['file_path']
+    _request_id = rpath_output.json()['_source']['req_id']
+    print("Received ID: " + _id + ", path: " + _file_path)
 
-            sw = ROOT.TStopwatch()
-            sw.Start()
+    request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
+    attr_name_list = request_output.json()['_source']['columns']
+    print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
 
-            file_in = ROOT.TFile.Open(_file_path)
-            tree_in = ROOT.xAOD.MakeTransientTree(file_in)
+    sw = ROOT.TStopwatch()
+    sw.Start()
 
-            branches = {}
-            for attr_name in attr_name_list:
-                attr_name = str(attr_name)
-                if not attr_name.split('.')[0].strip(' ') in branches:
-                    branches[attr_name.split('.')[0].strip(' ')] = [attr_name.split('.')[1]]
-                else:
-                    branches[attr_name.split('.')[0].strip(' ')].append(attr_name.split('.')[1])
+    file_in = ROOT.TFile.Open(_file_path)
+    tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
-            tree_in.SetBranchStatus('*', 0)
-            tree_in.SetBranchStatus('EventInfo', 1)
-            for branch_name in branches:
-                tree_in.SetBranchStatus(branch_name, 1)
-
-            n_entries = tree_in.GetEntries()
-            print("Total entries: " + str(n_entries))
-
-            n_chunks = int(math.ceil(n_entries / chunk_size))
-            for i_chunk in xrange(n_chunks):
-                first_event = i_chunk * chunk_size
-                last_event = min((i_chunk + 1) * chunk_size, n_entries)
-
-                object_array = awkward.fromiter(
-                    make_event_table(tree_in, branches, first_event, last_event)
-                )
-
-                table_def = "awkward.Table("
-                for attr_name in attr_name_list[:-1]:
-                    branch_name = attr_name.split('.')[0].strip(' ')
-                    a_name = attr_name.split('.')[1]
-                    table_def = (table_def + branch_name + '_' + a_name.strip('()')
-                                 + "=object_array['" + branch_name + "']['"
-                                 + a_name + "'], ")
-                last_branch_name = attr_name_list[-1].split('.')[0].strip(' ')
-                last_a_name = attr_name_list[-1].split('.')[1]
-                table_def = (table_def + last_branch_name + '_' + last_a_name.strip('()')
-                             + "=object_array['" + last_branch_name + "']['"
-                             + last_a_name + "'])")
-                object_table = eval(table_def)
-
-                pa_table = awkward.toarrow(object_table)
-                batches = pa_table.to_batches(chunksize=chunk_size)
-
-                # Leaving this for now; currently batches is a list of size 1,
-                # but it gives us the flexibility to define an iterator over
-                # multiple batches in the future
-                batch_number = i_chunk * len(batches)
-                for batch in batches:
-                    sink = pa.BufferOutputStream()
-                    writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-                    writer.write_batch(batch)
-                    writer.close()
-                    while True:
-                        published = m.publish_message(_request_id, batch_number, sink.getvalue())
-                        if published:
-                            print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
-                            batch_number += 1
-                            requests.put('https://servicex.slateci.net/drequest/events_served/' +
-                                         _request_id + '/' + str(batch.num_rows), verify=False)
-                            requests.put('https://servicex.slateci.net/dpath/events_served/' +
-                                         _id + '/' + str(batch.num_rows), verify=False)
-                            break
-                        else:
-                            print("not published. Waiting 10 seconds before retry.")
-                            time.sleep(10)
-            ROOT.xAOD.ClearTransientTrees()
-
-            requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)
-
-            sw.Stop()
-            print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
-            print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
-
+    branches = {}
+    for attr_name in attr_name_list:
+        attr_name = str(attr_name)
+        if not attr_name.split('.')[0].strip(' ') in branches:
+            branches[attr_name.split('.')[0].strip(' ')] = [attr_name.split('.')[1]]
         else:
-            time.sleep(10)
+            branches[attr_name.split('.')[0].strip(' ')].append(attr_name.split('.')[1])
+
+    tree_in.SetBranchStatus('*', 0)
+    tree_in.SetBranchStatus('EventInfo', 1)
+    for branch_name in branches:
+        tree_in.SetBranchStatus(branch_name, 1)
+
+    n_entries = tree_in.GetEntries()
+    print("Total entries: " + str(n_entries))
+
+    n_chunks = int(math.ceil(n_entries / chunk_size))
+    for i_chunk in xrange(n_chunks):
+        first_event = i_chunk * chunk_size
+        last_event = min((i_chunk + 1) * chunk_size, n_entries)
+
+        object_array = awkward.fromiter(
+            make_event_table(tree_in, branches, first_event, last_event)
+        )
+
+        table_def = "awkward.Table("
+        for attr_name in attr_name_list[:-1]:
+            branch_name = attr_name.split('.')[0].strip(' ')
+            a_name = attr_name.split('.')[1]
+            table_def = (table_def + branch_name + '_' + a_name.strip('()')
+                            + "=object_array['" + branch_name + "']['"
+                            + a_name + "'], ")
+        last_branch_name = attr_name_list[-1].split('.')[0].strip(' ')
+        last_a_name = attr_name_list[-1].split('.')[1]
+        table_def = (table_def + last_branch_name + '_' + last_a_name.strip('()')
+                        + "=object_array['" + last_branch_name + "']['"
+                        + last_a_name + "'])")
+        object_table = eval(table_def)
+
+        pa_table = awkward.toarrow(object_table)
+        batches = pa_table.to_batches(chunksize=chunk_size)
+
+        # Leaving this for now; currently batches is a list of size 1,
+        # but it gives us the flexibility to define an iterator over
+        # multiple batches in the future
+        batch_number = i_chunk * len(batches)
+        for batch in batches:
+            sink = pa.BufferOutputStream()
+            writer = pa.RecordBatchStreamWriter(sink, batch.schema)
+            writer.write_batch(batch)
+            writer.close()
+            while True:
+                published = m.publish_message(_request_id, batch_number, sink.getvalue())
+                if published:
+                    print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
+                    batch_number += 1
+                    requests.put('https://servicex.slateci.net/drequest/events_served/' +
+                                    _request_id + '/' + str(batch.num_rows), verify=False)
+                    requests.put('https://servicex.slateci.net/dpath/events_served/' +
+                                    _id + '/' + str(batch.num_rows), verify=False)
+                    break
+                else:
+                    print("not published. Waiting 10 seconds before retry.")
+                    time.sleep(10)
+    ROOT.xAOD.ClearTransientTrees()
+
+    requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)
+
+    sw.Stop()
+    print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
+    print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
 
 
 if __name__ == "__main__":
-    write_branches_to_arrow()
+    while True:
+        write_branches_to_arrow()

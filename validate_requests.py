@@ -59,12 +59,9 @@ def create_kafka_topic(admin, topic):
             res.result()   # The result itself is None
             print("Topic {} created".format(topic))
         except KafkaException as k_execpt:
-            k_error = k_except.args[0]
+            k_error = k_execpt.args[0]
             print(k_error.str())
-            if k_error.code() == 36:
-                return True
-            else:
-                return False
+            return(k_error.code() == 36)
 
 
 if __name__ == "__main__":
