@@ -14,11 +14,14 @@ import messaging
 # import uproot_methods
 
 
-
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
-chunk_size = 500   # Events per Kafka message
 
-m = messaging.Messaging()  
+chunk_size = 500
+if 'EVENTS_PER_MESSAGE' in os.environ:
+    chunk_size = os.environ['EVENTS_PER_MESSAGE']
+print("events per message:", chunk_size)
+
+m = messaging.Messaging()
 
 
 def make_event_table(tree, branches, f_evt, l_evt):
@@ -47,7 +50,6 @@ def make_event_table(tree, branches, f_evt, l_evt):
         # if j_entry == 6000: break
 
 
-
 def print_branches(file_name, branch_name):
     file_in = ROOT.TFile.Open(file_name)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
@@ -64,7 +66,6 @@ def print_branches(file_name, branch_name):
             print(method_name)
 
     ROOT.gROOT.ProcessLine("gSystem->RedirectOutput(0);")
-
 
 
 def write_branches_to_ntuple(file_name, attr_name_list):
@@ -104,12 +105,12 @@ def write_branches_to_ntuple(file_name, attr_name_list):
             'n_' + branch_name,
             particle_attr[branch_name],
             'n_' + branch_name + '/I'
-            )
+        )
     for attr_name in attr_name_list:
         b_particle_attr[attr_name] = tree_out.Branch(
             attr_name.split('.')[0].strip(' ') + '_' + attr_name.split('.')[1].strip('()'),
             particle_attr[attr_name]
-            )
+        )
 
     for j_entry in xrange(n_entries):
         tree_in.GetEntry(j_entry)
@@ -140,7 +141,6 @@ def write_branches_to_ntuple(file_name, attr_name_list):
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
 
 
-
 def write_branches_to_arrow():
     while True:
         rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
@@ -154,8 +154,6 @@ def write_branches_to_arrow():
             request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
             attr_name_list = request_output.json()['_source']['columns']
             print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
-
-            # requests.put('https://servicex.slateci.net/dpath/transform/' + str(_request_id) + '/Transforming', verify=False)
 
             sw = ROOT.TStopwatch()
             sw.Start()
@@ -186,32 +184,22 @@ def write_branches_to_arrow():
 
                 object_array = awkward.fromiter(
                     make_event_table(tree_in, branches, first_event, last_event)
-                    )
+                )
 
                 table_def = "awkward.Table("
                 for attr_name in attr_name_list[:-1]:
                     branch_name = attr_name.split('.')[0].strip(' ')
                     a_name = attr_name.split('.')[1]
                     table_def = (table_def + branch_name + '_' + a_name.strip('()')
-                                + "=object_array['" + branch_name + "']['"
-                                + a_name + "'], ")
+                                 + "=object_array['" + branch_name + "']['"
+                                 + a_name + "'], ")
                 last_branch_name = attr_name_list[-1].split('.')[0].strip(' ')
                 last_a_name = attr_name_list[-1].split('.')[1]
                 table_def = (table_def + last_branch_name + '_' + last_a_name.strip('()')
-                            + "=object_array['" + last_branch_name + "']['"
-                            + last_a_name + "'])")
+                             + "=object_array['" + last_branch_name + "']['"
+                             + last_a_name + "'])")
                 object_table = eval(table_def)
 
-                # object_table = awkward.Table(Electrons_pt=object_array['Electrons']['pt()'],
-                                            # Electrons_eta=object_array['Electrons']['eta()'],
-                                            # Electrons_phi=object_array['Electrons']['phi()'],
-                                            # Electrons_e=object_array['Electrons']['e()'],
-                                            # Muons_pt=object_array['Muons']['pt()'],
-                                            # Muons_eta=object_array['Muons']['eta()'],
-                                            # Muons_phi=object_array['Muons']['phi()'],
-                                            # Muons_e=object_array['Muons']['e()'])
-
-                # producer = messaging.connect_kafka_producer(messaging.kafka_brokers)
                 pa_table = awkward.toarrow(object_table)
                 batches = pa_table.to_batches(chunksize=chunk_size)
 
@@ -224,13 +212,15 @@ def write_branches_to_arrow():
                     writer = pa.RecordBatchStreamWriter(sink, batch.schema)
                     writer.write_batch(batch)
                     writer.close()
-                    while True: 
+                    while True:
                         published = m.publish_message(_request_id, batch_number, sink.getvalue())
                         if published:
                             print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
                             batch_number += 1
-                            requests.put('https://servicex.slateci.net/drequest/events_served/' + _request_id + '/' + str(batch.num_rows), verify=False)
-                            requests.put('https://servicex.slateci.net/dpath/events_served/' + _id + '/' + str(batch.num_rows), verify=False)
+                            requests.put('https://servicex.slateci.net/drequest/events_served/' +
+                                         _request_id + '/' + str(batch.num_rows), verify=False)
+                            requests.put('https://servicex.slateci.net/dpath/events_served/' +
+                                         _id + '/' + str(batch.num_rows), verify=False)
                             break
                         else:
                             print("not published. Waiting 10 seconds before retry.")
@@ -246,5 +236,6 @@ def write_branches_to_arrow():
         else:
             time.sleep(10)
 
-if __name__== "__main__":
+
+if __name__ == "__main__":
     write_branches_to_arrow()

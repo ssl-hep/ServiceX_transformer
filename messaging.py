@@ -1,10 +1,16 @@
 import sys
+import os
 import time
 
 
 class Messaging:
     def __init__(self, backend='redis'):
         self.backend = backend
+        self.MAX_MESSAGES_PER_REQUEST = 100
+        if 'MAX_MESSAGES_PER_REQUEST' in os.environ:
+            self.MAX_MESSAGES_PER_REQUEST = os.environ['MAX_MESSAGES_PER_REQUEST']
+        print("max messages per request:", self.MAX_MESSAGES_PER_REQUEST)
+
         if backend == 'redis':
             try:
                 import redis
@@ -27,10 +33,9 @@ class Messaging:
             self.configure_kafka()
             print('Configured Kafka backend')
 
-    def configure_redis(self, host='redis.slateci.net', port=6379, max_messages_per_request=5000):
+    def configure_redis(self, host='redis.slateci.net', port=6379):
         self.host = host
         self.port = port
-        self.max_messages_per_request = max_messages_per_request
         self.client = None
 
     def configure_kafka(self, brokers=None):
@@ -80,10 +85,10 @@ class Messaging:
         # connect if not already done
         try:
             while True:
-                self.set_redis_client()
                 if self.client:
                     # print('Redis client connected.')
                     break
+                self.set_redis_client()
                 print('waiting to connect redis client...')
                 time.sleep(60)
         except Exception as ex:
@@ -91,7 +96,7 @@ class Messaging:
             raise
 
         # check if queue is still full, if yes return false.
-        if self.client.xlen(request_id) > self.max_messages_per_request:
+        if self.client.xlen(request_id) > self.MAX_MESSAGES_PER_REQUEST:
             return False
 
         # add message
