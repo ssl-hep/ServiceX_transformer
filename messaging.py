@@ -8,7 +8,7 @@ class Messaging:
         self.backend = backend
         self.MAX_MESSAGES_PER_REQUEST = 100
         if 'MAX_MESSAGES_PER_REQUEST' in os.environ:
-            self.MAX_MESSAGES_PER_REQUEST = os.environ['MAX_MESSAGES_PER_REQUEST']
+            self.MAX_MESSAGES_PER_REQUEST = int(os.environ['MAX_MESSAGES_PER_REQUEST'])
         print("max messages per request:", self.MAX_MESSAGES_PER_REQUEST)
 
         if backend == 'redis':

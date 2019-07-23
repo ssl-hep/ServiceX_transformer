@@ -18,7 +18,7 @@ ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
 chunk_size = 500
 if 'EVENTS_PER_MESSAGE' in os.environ:
-    chunk_size = os.environ['EVENTS_PER_MESSAGE']
+    chunk_size = int(os.environ['EVENTS_PER_MESSAGE'])
 print("events per message:", chunk_size)
 
 m = messaging.Messaging()
