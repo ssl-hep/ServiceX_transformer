@@ -22,6 +22,12 @@ if 'EVENTS_PER_MESSAGE' in os.environ:
     chunk_size = int(os.environ['EVENTS_PER_MESSAGE'])
 print("events per message:", chunk_size)
 
+
+wait_for_consumer = 600
+if 'WAIT_FOR_CONSUMER' in os.environ:
+    wait_for_consumer = int(os.environ['WAIT_FOR_CONSUMER'])
+print("seconds waiting for consumer to restart:", wait_for_consumer)
+
 m = messaging.Messaging()
 
 
@@ -143,7 +149,7 @@ def write_branches_to_ntuple(file_name, attr_name_list):
 
 
 def write_branches_to_arrow():
-
+    waited = 0
     rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
 
     if rpath_output.text == 'false':
@@ -225,10 +231,15 @@ def write_branches_to_arrow():
                                  _request_id + '/' + str(batch.num_rows), verify=False)
                     requests.put('https://servicex.slateci.net/dpath/events_served/' +
                                  _id + '/' + str(batch.num_rows), verify=False)
+                    waited = 0
                     break
                 else:
                     print("not published. Waiting 10 seconds before retry.")
                     time.sleep(10)
+                    waited += 10
+                    if waited > wait_for_consumer:
+                        requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Validated', verify=False)
+                        sys.exit(0)
     ROOT.xAOD.ClearTransientTrees()
 
     requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)

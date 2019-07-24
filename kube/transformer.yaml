@@ -45,7 +45,9 @@ spec:
         - name: PYTHONWARNINGS
           value: "ignore:Unverified HTTPS request"
         - name: MAX_MESSAGES_PER_REQUEST
-          value: "100"
+          value: "100"        
+        - name: WAIT_FOR_CONSUMER
+          value: "600"
         - name: EVENTS_PER_MESSAGE
           value: "500"
         volumeMounts:
