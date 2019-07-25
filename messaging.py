@@ -73,7 +73,7 @@ class Messaging:
                     break
                 print('waiting to connect kafka producer...')
                 time.sleep(60)
-            self.producer.send(topic_name, key=str(key),
+            self.producer.send(topic_name, key='req_id:' + str(key),
                                value=value_buffer.to_pybytes())
             self.producer.flush()
             print("Message published successfully")

@@ -14,14 +14,12 @@ import time
 import messaging
 # import uproot_methods
 
-
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
 chunk_size = 500
 if 'EVENTS_PER_MESSAGE' in os.environ:
     chunk_size = int(os.environ['EVENTS_PER_MESSAGE'])
 print("events per message:", chunk_size)
-
 
 wait_for_consumer = 600
 if 'WAIT_FOR_CONSUMER' in os.environ:
