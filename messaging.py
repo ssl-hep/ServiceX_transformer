@@ -73,7 +73,7 @@ class Messaging:
                     break
                 print('waiting to connect kafka producer...')
                 time.sleep(60)
-            self.producer.send(topic_name, key='req_id:' + str(key),
+            self.producer.send(topic_name, key=str(key),
                                value=value_buffer.to_pybytes())
             self.producer.flush()
             print("Message published successfully")
@@ -94,7 +94,7 @@ class Messaging:
         except Exception as ex:
             print("Exception in publishing message:", ex)
             raise
-
+        request_id = 'req_id:' + request_id
         # check if queue is still full, if yes return false.
         if self.client.xlen(request_id) > self.MAX_MESSAGES_PER_REQUEST:
             return False
@@ -105,6 +105,7 @@ class Messaging:
 
     def request_status_redis(self, request_id):
         try:
+            request_id = 'req_id:' + request_id
             request_info = self.client.xinfo_stream(request_id)
             print('req_info:', request_info)
         except redis.exceptions.ResponseError as redis_e:
