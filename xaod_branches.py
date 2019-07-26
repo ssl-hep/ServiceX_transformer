@@ -151,6 +151,7 @@ def write_branches_to_arrow():
     rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
 
     if rpath_output.text == 'false':
+        print("nothing to do...")
         time.sleep(10)
         return
 
