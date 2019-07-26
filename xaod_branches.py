@@ -195,20 +195,13 @@ def write_branches_to_arrow():
             make_event_table(tree_in, branches, first_event, last_event)
         )
 
-        table_def = "awkward.Table("
-        for attr_name in attr_name_list[:-1]:
+        attr_dict = {}
+        for attr_name in attr_name_list:
             branch_name = attr_name.split('.')[0].strip(' ')
             a_name = attr_name.split('.')[1]
-            table_def = (table_def + branch_name + '_' + a_name.strip('()')
-                         + "=object_array['" + branch_name + "']['"
-                         + a_name + "'], ")
-        last_branch_name = attr_name_list[-1].split('.')[0].strip(' ')
-        last_a_name = attr_name_list[-1].split('.')[1]
-        table_def = (table_def + last_branch_name + '_' + last_a_name.strip('()')
-                     + "=object_array['" + last_branch_name + "']['"
-                     + last_a_name + "'])")
-        object_table = eval(table_def)
+            attr_dict[branch_name + '_' + a_name.strip('()')] = object_array[branch_name][a_name]
 
+        object_table = awkward.Table(**attr_dict)
         pa_table = awkward.toarrow(object_table)
         batches = pa_table.to_batches(chunksize=chunk_size)
 
