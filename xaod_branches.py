@@ -239,7 +239,6 @@ def write_branches_to_arrow():
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
-    sys.exit(0)
 
 
 if __name__ == "__main__":
