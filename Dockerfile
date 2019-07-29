@@ -4,7 +4,7 @@ LABEL maintainer Ilija Vukotic <ivukotic@cern.ch>
 
 # analysisbase already sets user "atlas" so have to sudo everything
 
-RUN sudo mkdir -p /etc/grid-security/certificates /etc/grid-security/vomsdir 
+RUN sudo mkdir -p /etc/grid-security/certificates /etc/grid-security/vomsdir
 
 # needed to get x509 proxy to read the data
 RUN sudo yum -y update
@@ -14,7 +14,7 @@ RUN sudo yum -y update
 # RUN yum localinstall https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el7-release-latest.rpm -y
 # RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm; \
 #     curl -s -o /etc/pki/rpm-gpg/RPM-GPG-KEY-wlcg http://linuxsoft.cern.ch/wlcg/RPM-GPG-KEY-wlcg; \
-#     curl -s -o /etc/yum.repos.d/wlcg-centos7.repo http://linuxsoft.cern.ch/wlcg/wlcg-centos7.repo; 
+#     curl -s -o /etc/yum.repos.d/wlcg-centos7.repo http://linuxsoft.cern.ch/wlcg/wlcg-centos7.repo;
 
 RUN sudo yum localinstall https://repo.opensciencegrid.org/osg/3.4/osg-3.4-el6-release-latest.rpm -y
 
@@ -28,7 +28,7 @@ RUN sudo yum install -y \
 
 ENV X509_USER_PROXY /etc/grid-security/x509up
 
-# not needed. 
+# not needed.
 # RUN sudo yum install -y python34; \
 #     sudo curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py; \
 #     sudo python3 get-pip.py; \
@@ -48,4 +48,5 @@ RUN source /home/atlas/release_setup.sh; \
     pyarrow \
     kafka \
     confluent_kafka \
-    redis
+    redis \
+    pympler

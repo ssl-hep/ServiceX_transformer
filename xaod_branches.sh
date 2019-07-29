@@ -32,7 +32,7 @@ fi
 print_branches () {
     # Print xAOD branches to temporary file temp.txt
     python -c "import xaod_branches; xaod_branches.print_branches(\"$file\", \"$branch\")"
-    
+
     # Search the file for the branch name, type, and size
     >| xaod_branches.txt
     while read line; do
@@ -44,7 +44,7 @@ print_branches () {
             if [[ ! -z "$(echo \"$line\" | awk '{print $6}')" ]]; then
                 type="$type$(echo \"$line\" | awk '{print $5}')"
             fi
-        
+
             read nextLine
             if [[ "$nextLine" == *"|"* ]]; then
                 type="$type$(echo \"$nextLine\" | awk '{print $3}')"
@@ -72,7 +72,7 @@ print_branches () {
     done < temp.txt
 
     rm temp.txt
-    
+
     # Do whatever needs to be done with the output json
 }
 
@@ -86,7 +86,7 @@ write_branches_to_ntuple () {
     attr_list="${attr_list}]"
 
     python -c "import xaod_branches; xaod_branches.write_branches_to_ntuple(\"$file\", $attr_list)"
-    
+
     # Do whatever needs to be done with the output flat ntuple
 }
 
