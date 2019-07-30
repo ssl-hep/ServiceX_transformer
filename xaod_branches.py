@@ -6,27 +6,86 @@ import math
 import os
 import sys
 import ROOT
+import argparse
 import numpy as np
 import pyarrow as pa
 import awkward
 import requests
 import time
-import messaging
+from servicex.transformer.kafka_messaging import KafkaMessaging
+from servicex.transformer.redis_messaging import RedisMessaging
+from servicex.servicex_adaptor import ServiceX
 # import uproot_methods
 
+default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
+                     "servicex-kafka-1.slateci.net:19092," \
+                     "servicex-kafka-2.slateci.net:19092"
+
+default_attr_names = "Electrons.pt(), " \
+                     "Electrons.eta(), " \
+                     "Electrons.phi(), " \
+                     "Electrons.e()"
+
+default_servicex_endpoint = 'https://servicex.slateci.net'
+
+# How many events to include in each Kafka message. This needs to be small
+# enough to keep below the broker and consumer max bytes
+default_chunks = 50000
+
+# Number of seconds to wait for consumer to wake up
+default_wait_for_consumer = 600
+
+parser = argparse.ArgumentParser(
+    description='Transform xAOD files into flat n-tuples.')
+
+parser.add_argument("--brokerlist", dest='brokerlist', action='store',
+                    default=default_brokerlist,
+                    help='List of Kafka broker to connect to')
+
+parser.add_argument("--topic", dest='topic', action='store',
+                    default='servicex',
+                    help='Kafka topic to publish arrays to')
+
+parser.add_argument("--chunks", dest='chunks', action='store',
+                    default=os.environ.get("EVENTS_PER_MESSAGE", default_chunks),
+                    help='Arrow Buffer Chunksize')
+
+parser.add_argument("--attrs", dest='attr_names', action='store',
+                    default=default_attr_names,
+                    help='List of attributes to extract')
+
+parser.add_argument("--servicex", dest='servicex_endpoint', action='store',
+                    default=default_servicex_endpoint,
+                    help='Endpoint for servicex')
+
+parser.add_argument("--path", dest='path', action='store',
+                    default=None,
+                    help='Path to single Root file to transform')
+
+parser.add_argument("--limit", dest='limit', action='store',
+                    default=None,
+                    help='Max number of events to process')
+
+parser.add_argument("--wait", dest='wait', action='store',
+                    default=os.environ.get('WAIT_FOR_CONSUMER',
+                                           default_wait_for_consumer),
+                    help="Number of seconds to wait for consumer to restart")
+
+parser.add_argument('--kafka', dest='kafka_messaging', action='store_true',
+                    default=False, help='Use Kafka Backend for messages')
+
+parser.add_argument('--redis', dest='redis_messaging', action='store_true',
+                    default=False, help='Use Redis Backend for messages')
+
+parser.add_argument("--redis-host", dest='redis_host', action='store',
+                    default='redis.slateci.net',
+                    help='Host for redis messaging backend')
+
+parser.add_argument("--redis-port", dest='redis_port', action='store',
+                    default='6379',
+                    help='Port for redis messaging backend')
+
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
-
-chunk_size = 500
-if 'EVENTS_PER_MESSAGE' in os.environ:
-    chunk_size = int(os.environ['EVENTS_PER_MESSAGE'])
-print("events per message:", chunk_size)
-
-wait_for_consumer = 600
-if 'WAIT_FOR_CONSUMER' in os.environ:
-    wait_for_consumer = int(os.environ['WAIT_FOR_CONSUMER'])
-print("seconds waiting for consumer to restart:", wait_for_consumer)
-
-m = messaging.Messaging()
 
 
 def make_event_table(tree, branches, f_evt, l_evt):
@@ -146,28 +205,32 @@ def write_branches_to_ntuple(file_name, attr_name_list):
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
 
 
-def write_branches_to_arrow():
+def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, event_limit=None):
     waited = 0
-    rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
+    rpath_output = servicex.get_transform_requests()
 
-    if rpath_output.text == 'false':
+    if not rpath_output:
         print("nothing to do...")
         time.sleep(10)
         return
 
-    _id = rpath_output.json()['_id']
-    _file_path = rpath_output.json()['_source']['file_path']
-    _request_id = rpath_output.json()['_source']['req_id']
+    _id = rpath_output['_id']
+    _file_path = rpath_output['_source']['file_path']
+    _request_id = rpath_output['_source']['req_id']
     print("Received ID: " + _id + ", path: " + _file_path)
 
-    request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
+    request_output = servicex.get_request_info(_request_id)
+
     attr_name_list = request_output.json()['_source']['columns']
     print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
+    write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit)
 
+
+def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit=None):
     sw = ROOT.TStopwatch()
     sw.Start()
 
-    file_in = ROOT.TFile.Open(_file_path)
+    file_in = ROOT.TFile.Open(file_path)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
     branches = {}
@@ -185,6 +248,9 @@ def write_branches_to_arrow():
 
     n_entries = tree_in.GetEntries()
     print("Total entries: " + str(n_entries))
+    if event_limit:
+        n_entries = min(n_entries, event_limit)
+        print("Limiting to the first "+str(n_entries)+" events")
 
     n_chunks = int(math.ceil(n_entries / chunk_size))
     for i_chunk in xrange(n_chunks):
@@ -215,14 +281,13 @@ def write_branches_to_arrow():
             writer.write_batch(batch)
             writer.close()
             while True:
-                published = m.publish_message(_request_id, batch_number, sink.getvalue())
+                published = messaging.publish_message(topic_name, batch_number, sink.getvalue())
                 if published:
-                    print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
+                    print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + topic_name)
                     batch_number += 1
-                    requests.put('https://servicex.slateci.net/drequest/events_served/' +
-                                 _request_id + '/' + str(batch.num_rows), verify=False)
-                    requests.put('https://servicex.slateci.net/dpath/events_served/' +
-                                 _id + '/' + str(batch.num_rows), verify=False)
+                    if servicex:
+                        servicex.update_request_events_served(topic_name, batch.num_rows)
+                        servicex.update_path_events_served(id, batch.num_rows)
                     waited = 0
                     break
                 else:
@@ -230,11 +295,13 @@ def write_branches_to_arrow():
                     time.sleep(10)
                     waited += 10
                     if waited > wait_for_consumer:
-                        requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Validated', verify=False)
+                        if servicex:
+                            servicex.post_validated_status(id)
                         sys.exit(0)
     ROOT.xAOD.ClearTransientTrees()
 
-    requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)
+    if servicex:
+        servicex.post_transformed_status(id)
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
@@ -242,5 +309,47 @@ def write_branches_to_arrow():
 
 
 if __name__ == "__main__":
-    while True:
-        write_branches_to_arrow()
+
+    # Print help if no args are provided
+    if len(sys.argv[1:]) == 0:
+        parser.print_help()
+        parser.exit()
+
+    args = parser.parse_args()
+
+    # Convert comma separated broker string to a list
+    kafka_brokers = list(map(lambda b: b.strip(), args.brokerlist.split(",")))
+
+    # Convert comma separated attribute string to a list
+    attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
+
+    if args.kafka_messaging == args.redis_messaging:
+        print("You must specify one and only one messaging backend")
+        exit(-1)
+
+    if args.kafka_messaging:
+        messaging = KafkaMessaging(kafka_brokers)
+    elif args.redis_messaging:
+        messaging = RedisMessaging(args.redis_host, args.redis_port)
+
+    chunk_size = int(args.chunks)
+    wait_for_consumer = int(args.wait)
+
+    print("Atlas xAOD Transformer")
+    print(attr_list)
+    print("Chunk size ", chunk_size)
+
+    servicex = ServiceX(args.servicex_endpoint)
+
+    limit = int(args.limit) if args.limit else None
+
+    if args.path:
+        print("Transforming a single path: ", args.path)
+        write_branches_to_arrow(messaging, "servicex", args.path, "cli",
+                                attr_list, chunk_size, wait_for_consumer,
+                                None, limit)
+    else:
+        print("Polling for files from ", args.servicex_endpoint)
+        while True:
+            poll_for_root_files(servicex, messaging, chunk_size,
+                                wait_for_consumer, limit)

@@ -39,14 +39,12 @@ ENV X509_USER_PROXY /etc/grid-security/x509up
 # Create app directory
 WORKDIR /usr/src/app
 
+
+# Update atlas user's startup script to always initialize the Atlas release
+COPY bashrc /home/atlas/.bashrc
+COPY requirements.txt .
+RUN source /home/atlas/release_setup.sh; \
+    pip install --user -r requirements.txt
+
 COPY . .
 
-RUN source /home/atlas/release_setup.sh; \
-    pip install --user \
-    awkward==0.10.2 \
-    requests \
-    pyarrow \
-    kafka \
-    confluent_kafka \
-    redis \
-    pympler
