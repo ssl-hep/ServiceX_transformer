@@ -11,7 +11,7 @@ import pyarrow as pa
 import awkward
 import requests
 import time
-import messaging
+from servicex.transformer.kafka_messaging import KafkaMessaging
 # import uproot_methods
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
@@ -26,7 +26,9 @@ if 'WAIT_FOR_CONSUMER' in os.environ:
     wait_for_consumer = int(os.environ['WAIT_FOR_CONSUMER'])
 print("seconds waiting for consumer to restart:", wait_for_consumer)
 
-m = messaging.Messaging()
+m = KafkaMessaging(['servicex-kafka-0.slateci.net:19092',
+                    'servicex-kafka-1.slateci.net:19092',
+                    'servicex-kafka-2.slateci.net:19092'])
 
 
 def make_event_table(tree, branches, f_evt, l_evt):
