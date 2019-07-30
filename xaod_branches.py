@@ -14,6 +14,7 @@ import requests
 import time
 from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.redis_messaging import RedisMessaging
+from servicex.servicex_adaptor import ServiceX
 # import uproot_methods
 
 default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
@@ -204,28 +205,28 @@ def write_branches_to_ntuple(file_name, attr_name_list):
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
 
 
-def poll_for_root_files(servicex_endpoint, messaging, chunk_size, wait_for_consumer, event_limit=None):
+def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, event_limit=None):
     waited = 0
-    rpath_output = requests.get(servicex_endpoint+'/dpath/transform', verify=False)
+    rpath_output = servicex.get_transform_requests()
 
-    if rpath_output.text == 'false':
+    if not rpath_output:
         print("nothing to do...")
         time.sleep(10)
         return
 
-    _id = rpath_output.json()['_id']
-    _file_path = rpath_output.json()['_source']['file_path']
-    _request_id = rpath_output.json()['_source']['req_id']
+    _id = rpath_output['_id']
+    _file_path = rpath_output['_source']['file_path']
+    _request_id = rpath_output['_source']['req_id']
     print("Received ID: " + _id + ", path: " + _file_path)
 
-    request_output = requests.get(
-        servicex_endpoint + '/drequest/' + _request_id, verify=False)
+    request_output = servicex.get_request_info(_request_id)
+
     attr_name_list = request_output.json()['_source']['columns']
     print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
-    write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex_endpoint, event_limit)
+    write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit)
 
 
-def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list, chunk_size, wait_for_consumer, servicex_endpoint, event_limit=None):
+def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit=None):
     sw = ROOT.TStopwatch()
     sw.Start()
 
@@ -284,10 +285,9 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
                 if published:
                     print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + topic_name)
                     batch_number += 1
-                    requests.put(servicex_endpoint + '/drequest/events_served/' +
-                                 topic_name + '/' + str(batch.num_rows), verify=False)
-                    requests.put(servicex_endpoint + '/dpath/events_served/' +
-                                 id + '/' + str(batch.num_rows), verify=False)
+                    if servicex:
+                        servicex.update_request_events_served(topic_name, batch.num_rows)
+                        servicex.update_path_events_served(id, batch.num_rows)
                     waited = 0
                     break
                 else:
@@ -295,11 +295,13 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
                     time.sleep(10)
                     waited += 10
                     if waited > wait_for_consumer:
-                        requests.put(servicex_endpoint + '/dpath/status/' + id + '/Validated', verify=False)
+                        if servicex:
+                            servicex.post_validated_status(id)
                         sys.exit(0)
     ROOT.xAOD.ClearTransientTrees()
 
-    requests.put(servicex_endpoint + '/dpath/status/' + id + '/Transformed', verify=False)
+    if servicex:
+        servicex.post_transformed_status(id)
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
@@ -308,6 +310,7 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
 
 if __name__ == "__main__":
 
+    # Print help if no args are provided
     if len(sys.argv[1:]) == 0:
         parser.print_help()
         parser.exit()
@@ -336,13 +339,17 @@ if __name__ == "__main__":
     print(attr_list)
     print("Chunk size ", chunk_size)
 
+    servicex = ServiceX(args.servicex_endpoint)
+
+    limit = int(args.limit) if args.limit else None
+
     if args.path:
         print("Transforming a single path: ", args.path)
         write_branches_to_arrow(messaging, "servicex", args.path, "cli",
                                 attr_list, chunk_size, wait_for_consumer,
-                                args.servicex_endpoint, int(args.limit))
+                                None, limit)
     else:
         print("Polling for files from ", args.servicex_endpoint)
         while True:
-            poll_for_root_files(args.servicex_endpoint, messaging, chunk_size,
-                                wait_for_consumer, int(args.limit))
+            poll_for_root_files(servicex, messaging, chunk_size,
+                                wait_for_consumer, limit)
