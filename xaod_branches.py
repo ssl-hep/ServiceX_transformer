@@ -190,9 +190,9 @@ def write_branches_to_ntuple(file_name, attr_name_list):
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
 
 
-def write_branches_to_arrow(messaging, chunk_size, wait_for_consumer):
+def poll_for_root_files(servicex_endpoint, messaging, chunk_size, wait_for_consumer):
     waited = 0
-    rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
+    rpath_output = requests.get(servicex_endpoint+'/dpath/transform', verify=False)
 
     if rpath_output.text == 'false':
         print("nothing to do...")
@@ -204,14 +204,18 @@ def write_branches_to_arrow(messaging, chunk_size, wait_for_consumer):
     _request_id = rpath_output.json()['_source']['req_id']
     print("Received ID: " + _id + ", path: " + _file_path)
 
-    request_output = requests.get('https://servicex.slateci.net/drequest/' + _request_id, verify=False)
+    request_output = requests.get(
+        servicex_endpoint + '/drequest/' + _request_id, verify=False)
     attr_name_list = request_output.json()['_source']['columns']
     print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
+    write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex_endpoint)
 
+
+def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list, chunk_size, wait_for_consumer, servicex_endpoint):
     sw = ROOT.TStopwatch()
     sw.Start()
 
-    file_in = ROOT.TFile.Open(_file_path)
+    file_in = ROOT.TFile.Open(file_path)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
     branches = {}
@@ -259,14 +263,14 @@ def write_branches_to_arrow(messaging, chunk_size, wait_for_consumer):
             writer.write_batch(batch)
             writer.close()
             while True:
-                published = messaging.publish_message(_request_id, batch_number, sink.getvalue())
+                published = messaging.publish_message(topic_name, batch_number, sink.getvalue())
                 if published:
-                    print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
+                    print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + topic_name)
                     batch_number += 1
-                    requests.put('https://servicex.slateci.net/drequest/events_served/' +
-                                 _request_id + '/' + str(batch.num_rows), verify=False)
-                    requests.put('https://servicex.slateci.net/dpath/events_served/' +
-                                 _id + '/' + str(batch.num_rows), verify=False)
+                    requests.put(servicex_endpoint + '/drequest/events_served/' +
+                                 topic_name + '/' + str(batch.num_rows), verify=False)
+                    requests.put(servicex_endpoint + '/dpath/events_served/' +
+                                 id + '/' + str(batch.num_rows), verify=False)
                     waited = 0
                     break
                 else:
@@ -274,11 +278,11 @@ def write_branches_to_arrow(messaging, chunk_size, wait_for_consumer):
                     time.sleep(10)
                     waited += 10
                     if waited > wait_for_consumer:
-                        requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Validated', verify=False)
+                        requests.put(servicex_endpoint + '/dpath/status/' + id + '/Validated', verify=False)
                         sys.exit(0)
     ROOT.xAOD.ClearTransientTrees()
 
-    requests.put('https://servicex.slateci.net/dpath/status/' + _id + '/Transformed', verify=False)
+    requests.put(servicex_endpoint + '/dpath/status/' + id + '/Transformed', verify=False)
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
@@ -303,5 +307,13 @@ if __name__ == "__main__":
     print(attr_list)
     print("Chunk size ", chunk_size)
 
-    while True:
-        write_branches_to_arrow(messaging, chunk_size, wait_for_consumer)
+    if args.path:
+        print("Transforming a single path: ", args.path)
+        write_branches_to_arrow(messaging, "servicex", args.path, "cli",
+                                attr_list, chunk_size, wait_for_consumer,
+                                args.servicex_endpoint)
+    else:
+        print("Polling for files from ", args.servicex_endpoint)
+        while True:
+            poll_for_root_files(args.servicex_endpoint, messaging, chunk_size,
+                                wait_for_consumer)

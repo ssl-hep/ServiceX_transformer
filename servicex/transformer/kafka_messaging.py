@@ -60,13 +60,6 @@ class KafkaMessaging(Messaging):
 
     def publish_message(self, topic_name, key, value_buffer):
         try:
-            while True:
-                self.set_kafka_producer()
-                if self.producer:
-                    print('Kafka producer connected.')
-                    break
-                print('waiting to connect kafka producer...')
-                time.sleep(60)
             self.producer.send(topic_name, key=str(key),
                                value=value_buffer.to_pybytes())
             self.producer.flush()
@@ -74,4 +67,5 @@ class KafkaMessaging(Messaging):
         except Exception as ex:
             print("Exception in publishing message", ex)
             raise
+        return True
 
