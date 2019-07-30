@@ -13,6 +13,7 @@ import awkward
 import requests
 import time
 from servicex.transformer.kafka_messaging import KafkaMessaging
+from servicex.transformer.redis_messaging import RedisMessaging
 # import uproot_methods
 
 default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
@@ -69,6 +70,19 @@ parser.add_argument("--wait", dest='wait', action='store',
                                            default_wait_for_consumer),
                     help="Number of seconds to wait for consumer to restart")
 
+parser.add_argument('--kafka', dest='kafka_messaging', action='store_true',
+                    default=False, help='Use Kafka Backend for messages')
+
+parser.add_argument('--redis', dest='redis_messaging', action='store_true',
+                    default=False, help='Use Redis Backend for messages')
+
+parser.add_argument("--redis-host", dest='redis_host', action='store',
+                    default='redis.slateci.net',
+                    help='Host for redis messaging backend')
+
+parser.add_argument("--redis-port", dest='redis_port', action='store',
+                    default='6379',
+                    help='Port for redis messaging backend')
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
@@ -190,7 +204,7 @@ def write_branches_to_ntuple(file_name, attr_name_list):
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
 
 
-def poll_for_root_files(servicex_endpoint, messaging, chunk_size, wait_for_consumer):
+def poll_for_root_files(servicex_endpoint, messaging, chunk_size, wait_for_consumer, event_limit=None):
     waited = 0
     rpath_output = requests.get(servicex_endpoint+'/dpath/transform', verify=False)
 
@@ -208,10 +222,10 @@ def poll_for_root_files(servicex_endpoint, messaging, chunk_size, wait_for_consu
         servicex_endpoint + '/drequest/' + _request_id, verify=False)
     attr_name_list = request_output.json()['_source']['columns']
     print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
-    write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex_endpoint)
+    write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex_endpoint, event_limit)
 
 
-def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list, chunk_size, wait_for_consumer, servicex_endpoint):
+def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list, chunk_size, wait_for_consumer, servicex_endpoint, event_limit=None):
     sw = ROOT.TStopwatch()
     sw.Start()
 
@@ -233,6 +247,9 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
 
     n_entries = tree_in.GetEntries()
     print("Total entries: " + str(n_entries))
+    if event_limit:
+        n_entries = min(n_entries, event_limit)
+        print("Limiting to the first "+str(n_entries)+" events")
 
     n_chunks = int(math.ceil(n_entries / chunk_size))
     for i_chunk in xrange(n_chunks):
@@ -290,6 +307,11 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
 
 
 if __name__ == "__main__":
+
+    if len(sys.argv[1:]) == 0:
+        parser.print_help()
+        parser.exit()
+
     args = parser.parse_args()
 
     # Convert comma separated broker string to a list
@@ -298,7 +320,14 @@ if __name__ == "__main__":
     # Convert comma separated attribute string to a list
     attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
 
-    messaging = KafkaMessaging(kafka_brokers)
+    if args.kafka_messaging == args.redis_messaging:
+        print("You must specify one and only one messaging backend")
+        exit(-1)
+
+    if args.kafka_messaging:
+        messaging = KafkaMessaging(kafka_brokers)
+    elif args.redis_messaging:
+        messaging = RedisMessaging(args.redis_host, args.redis_port)
 
     chunk_size = int(args.chunks)
     wait_for_consumer = int(args.wait)
@@ -311,9 +340,9 @@ if __name__ == "__main__":
         print("Transforming a single path: ", args.path)
         write_branches_to_arrow(messaging, "servicex", args.path, "cli",
                                 attr_list, chunk_size, wait_for_consumer,
-                                args.servicex_endpoint)
+                                args.servicex_endpoint, int(args.limit))
     else:
         print("Polling for files from ", args.servicex_endpoint)
         while True:
             poll_for_root_files(args.servicex_endpoint, messaging, chunk_size,
-                                wait_for_consumer)
+                                wait_for_consumer, int(args.limit))

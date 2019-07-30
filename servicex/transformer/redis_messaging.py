@@ -31,7 +31,7 @@ import redis
 import codecs
 
 
-class Messaging:
+class RedisMessaging:
     def __init__(self, host='redis.slateci.net', port=6379):
 
         self.MAX_MESSAGES_PER_REQUEST = 100
