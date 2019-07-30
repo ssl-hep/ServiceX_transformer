@@ -6,6 +6,7 @@ import math
 import os
 import sys
 import ROOT
+import argparse
 import numpy as np
 import pyarrow as pa
 import awkward
@@ -14,21 +15,62 @@ import time
 from servicex.transformer.kafka_messaging import KafkaMessaging
 # import uproot_methods
 
+default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
+                     "servicex-kafka-1.slateci.net:19092," \
+                     "servicex-kafka-2.slateci.net:19092"
+
+default_attr_names = "Electrons.pt(), " \
+                     "Electrons.eta(), " \
+                     "Electrons.phi(), " \
+                     "Electrons.e()"
+
+default_servicex_endpoint = 'https://servicex.slateci.net'
+
+# How many events to include in each Kafka message. This needs to be small
+# enough to keep below the broker and consumer max bytes
+default_chunks = 50000
+
+# Number of seconds to wait for consumer to wake up
+default_wait_for_consumer = 600
+
+parser = argparse.ArgumentParser(
+    description='Transform xAOD files into flat n-tuples.')
+
+parser.add_argument("--brokerlist", dest='brokerlist', action='store',
+                    default=default_brokerlist,
+                    help='List of Kafka broker to connect to')
+
+parser.add_argument("--topic", dest='topic', action='store',
+                    default='servicex',
+                    help='Kafka topic to publish arrays to')
+
+parser.add_argument("--chunks", dest='chunks', action='store',
+                    default=os.environ.get("EVENTS_PER_MESSAGE", default_chunks),
+                    help='Arrow Buffer Chunksize')
+
+parser.add_argument("--attrs", dest='attr_names', action='store',
+                    default=default_attr_names,
+                    help='List of attributes to extract')
+
+parser.add_argument("--servicex", dest='servicex_endpoint', action='store',
+                    default=default_servicex_endpoint,
+                    help='Endpoint for servicex')
+
+parser.add_argument("--path", dest='path', action='store',
+                    default=None,
+                    help='Path to single Root file to transform')
+
+parser.add_argument("--limit", dest='limit', action='store',
+                    default=None,
+                    help='Max number of events to process')
+
+parser.add_argument("--wait", dest='wait', action='store',
+                    default=os.environ.get('WAIT_FOR_CONSUMER',
+                                           default_wait_for_consumer),
+                    help="Number of seconds to wait for consumer to restart")
+
+
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
-
-chunk_size = 500
-if 'EVENTS_PER_MESSAGE' in os.environ:
-    chunk_size = int(os.environ['EVENTS_PER_MESSAGE'])
-print("events per message:", chunk_size)
-
-wait_for_consumer = 600
-if 'WAIT_FOR_CONSUMER' in os.environ:
-    wait_for_consumer = int(os.environ['WAIT_FOR_CONSUMER'])
-print("seconds waiting for consumer to restart:", wait_for_consumer)
-
-m = KafkaMessaging(['servicex-kafka-0.slateci.net:19092',
-                    'servicex-kafka-1.slateci.net:19092',
-                    'servicex-kafka-2.slateci.net:19092'])
 
 
 def make_event_table(tree, branches, f_evt, l_evt):
@@ -148,7 +190,7 @@ def write_branches_to_ntuple(file_name, attr_name_list):
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
 
 
-def write_branches_to_arrow():
+def write_branches_to_arrow(messaging, chunk_size, wait_for_consumer):
     waited = 0
     rpath_output = requests.get('https://servicex.slateci.net/dpath/transform', verify=False)
 
@@ -217,7 +259,7 @@ def write_branches_to_arrow():
             writer.write_batch(batch)
             writer.close()
             while True:
-                published = m.publish_message(_request_id, batch_number, sink.getvalue())
+                published = messaging.publish_message(_request_id, batch_number, sink.getvalue())
                 if published:
                     print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + _request_id)
                     batch_number += 1
@@ -244,5 +286,22 @@ def write_branches_to_arrow():
 
 
 if __name__ == "__main__":
+    args = parser.parse_args()
+
+    # Convert comma separated broker string to a list
+    kafka_brokers = list(map(lambda b: b.strip(), args.brokerlist.split(",")))
+
+    # Convert comma separated attribute string to a list
+    attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
+
+    messaging = KafkaMessaging(kafka_brokers)
+
+    chunk_size = int(args.chunks)
+    wait_for_consumer = int(args.wait)
+
+    print("Atlas xAOD Transformer")
+    print(attr_list)
+    print("Chunk size ", chunk_size)
+
     while True:
-        write_branches_to_arrow()
+        write_branches_to_arrow(messaging, chunk_size, wait_for_consumer)
