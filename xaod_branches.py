@@ -2,6 +2,8 @@
 from __future__ import division
 
 # Set up ROOT, uproot, and RootCore:
+import json
+
 import math
 import os
 import sys
@@ -84,6 +86,11 @@ parser.add_argument("--redis-host", dest='redis_host', action='store',
 parser.add_argument("--redis-port", dest='redis_port', action='store',
                     default='6379',
                     help='Port for redis messaging backend')
+
+parser.add_argument("--dataset", dest='dataset', action='store',
+                    default=None,
+                    help='JSON Dataset document from DID Finder')
+
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
@@ -281,7 +288,8 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
             writer.write_batch(batch)
             writer.close()
             while True:
-                published = messaging.publish_message(topic_name, batch_number, sink.getvalue())
+                key = file_path + "-" + str(batch_number)
+                published = messaging.publish_message(topic_name, key, sink.getvalue())
                 if published:
                     print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + topic_name)
                     batch_number += 1
@@ -306,6 +314,17 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
+
+
+def transform_dataset(dataset, messaging, topic_name, id, attr_list, chunk_size,
+                      wait_for_consumer, limit):
+    with open(dataset, 'r') as f:
+        datasets = json.load(f)
+        for rec in datasets:
+            print "Transforming ", rec[u'file_path'], rec[u'file_events']
+            write_branches_to_arrow(messaging, topic_name, rec[u'file_path'],
+                                    id, attr_list, chunk_size,
+                                    wait_for_consumer, None, limit)
 
 
 if __name__ == "__main__":
@@ -348,6 +367,10 @@ if __name__ == "__main__":
         write_branches_to_arrow(messaging, "servicex", args.path, "cli",
                                 attr_list, chunk_size, wait_for_consumer,
                                 None, limit)
+    elif args.dataset:
+        print("Transforming files from saved dataset ", args.dataset)
+        transform_dataset(args.dataset, messaging, "servicex", "cli",
+                          attr_list, chunk_size, wait_for_consumer, limit)
     else:
         print("Polling for files from ", args.servicex_endpoint)
         while True:
