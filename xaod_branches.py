@@ -228,7 +228,7 @@ def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, even
 
     request_output = servicex.get_request_info(_request_id)
 
-    attr_name_list = request_output.json()['_source']['columns']
+    attr_name_list = request_output['_source']['columns']
     print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
     write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit)
 
