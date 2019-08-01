@@ -93,7 +93,7 @@ write_branches_to_ntuple () {
 
 
 write_branches_to_arrow () {
-    python xaod_branches.py
+    python xaod_branches.py --redis
 }
 
 
