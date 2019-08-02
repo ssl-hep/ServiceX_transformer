@@ -113,7 +113,7 @@ def make_event_table(tree, branches, f_evt, l_evt):
                 particle = particles[branch_name].at(i)
                 single_particle_attr = {}
                 for a_name in branches[branch_name]:
-                    exec('single_particle_attr[a_name] = particle.' + a_name)
+                    single_particle_attr[a_name] = getattr(particle, a_name.strip('()'))()
                 full_event[branch_name].append(single_particle_attr)
 
         yield full_event
@@ -354,7 +354,7 @@ if __name__ == "__main__":
     chunk_size = int(args.chunks)
     wait_for_consumer = int(args.wait)
 
-    print("Atlas xAOD Transformer")
+    print("ATLAS xAOD Transformer")
     print(attr_list)
     print("Chunk size ", chunk_size)
 

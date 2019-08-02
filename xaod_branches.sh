@@ -93,6 +93,7 @@ write_branches_to_ntuple () {
 
 
 write_branches_to_arrow () {
+    export PYTHONWARNINGS="ignore:Unverified HTTPS request"
     python xaod_branches.py --redis
 }
 
