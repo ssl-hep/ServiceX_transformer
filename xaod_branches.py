@@ -30,9 +30,13 @@ default_attr_names = "Electrons.pt(), " \
 
 default_servicex_endpoint = 'https://servicex.slateci.net'
 
-# How many events to include in each Kafka message. This needs to be small
-# enough to keep below the broker and consumer max bytes
-default_chunks = 50000
+# How many bytes does an average awkward array cell take up. This is just
+# a rule of thumb to calculate chunksize
+avg_cell_size = 42
+
+# What is the largest message we want to send (in megabytes).
+# Note this must be less than the kafka broker setting if we are using kafka
+default_max_message_size = 14.5
 
 # Number of seconds to wait for consumer to wake up
 default_wait_for_consumer = 600
@@ -49,7 +53,7 @@ parser.add_argument("--topic", dest='topic', action='store',
                     help='Kafka topic to publish arrays to')
 
 parser.add_argument("--chunks", dest='chunks', action='store',
-                    default=os.environ.get("EVENTS_PER_MESSAGE", default_chunks),
+                    default=None,
                     help='Arrow Buffer Chunksize')
 
 parser.add_argument("--attrs", dest='attr_names', action='store',
@@ -91,8 +95,18 @@ parser.add_argument("--dataset", dest='dataset', action='store',
                     default=None,
                     help='JSON Dataset document from DID Finder')
 
+parser.add_argument("--max-message-size", dest='max_message_size',
+                    action='store', default=default_max_message_size,
+                    help='Max message size in megabytes')
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
+
+
+# Use a heuristic to guess at an optimum message chunk to fill the
+# max_message_size
+def _compute_chunk_size(attr_list, max_message_size):
+    print("Chunks comp", max_message_size * 1e6, len(attr_list), avg_cell_size)
+    return int(max_message_size * 1e6 / len(attr_list) / avg_cell_size)
 
 
 def make_event_table(tree, branches, f_evt, l_evt):
@@ -290,12 +304,19 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
             while True:
                 key = file_path + "-" + str(batch_number)
                 published = messaging.publish_message(topic_name, key, sink.getvalue())
+
                 if published:
-                    print("Batch number " + str(batch_number) + ", " + str(batch.num_rows) + " events published to " + topic_name)
+                    avg_cell_size = len(sink.getvalue().to_pybytes()) / len(attr_name_list) / batch.num_rows
+                    print("Batch number " + str(batch_number) + ", "
+                             + str(batch.num_rows) +
+                          " events published to " + topic_name,
+                          "Avg Cell Size = "+ str(avg_cell_size) + " bytes")
                     batch_number += 1
+
                     if servicex:
                         servicex.update_request_events_served(topic_name, batch.num_rows)
                         servicex.update_path_events_served(id, batch.num_rows)
+
                     waited = 0
                     break
                 else:
@@ -340,22 +361,26 @@ if __name__ == "__main__":
     kafka_brokers = list(map(lambda b: b.strip(), args.brokerlist.split(",")))
 
     # Convert comma separated attribute string to a list
-    attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
+    _attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
 
     if args.kafka_messaging == args.redis_messaging:
         print("You must specify one and only one messaging backend")
         exit(-1)
 
     if args.kafka_messaging:
-        messaging = KafkaMessaging(kafka_brokers)
+        messaging = KafkaMessaging(kafka_brokers, float(args.max_message_size))
     elif args.redis_messaging:
         messaging = RedisMessaging(args.redis_host, args.redis_port)
 
-    chunk_size = int(args.chunks)
+    if args.chunks:
+        chunk_size = int(args.chunks)
+    else:
+        chunk_size = _compute_chunk_size(_attr_list, float(args.max_message_size))
+
     wait_for_consumer = int(args.wait)
 
     print("Atlas xAOD Transformer")
-    print(attr_list)
+    print(_attr_list)
     print("Chunk size ", chunk_size)
 
     servicex = ServiceX(args.servicex_endpoint)
@@ -364,13 +389,13 @@ if __name__ == "__main__":
 
     if args.path:
         print("Transforming a single path: ", args.path)
-        write_branches_to_arrow(messaging, "servicex", args.path, "cli",
-                                attr_list, chunk_size, wait_for_consumer,
+        write_branches_to_arrow(messaging, args.topic, args.path, "cli",
+                                _attr_list, chunk_size, wait_for_consumer,
                                 None, limit)
     elif args.dataset:
         print("Transforming files from saved dataset ", args.dataset)
-        transform_dataset(args.dataset, messaging, "servicex", "cli",
-                          attr_list, chunk_size, wait_for_consumer, limit)
+        transform_dataset(args.dataset, messaging, args.topic, "cli",
+                          _attr_list, chunk_size, wait_for_consumer, limit)
     else:
         print("Polling for files from ", args.servicex_endpoint)
         while True:

@@ -62,7 +62,8 @@ each backend.
 | --servicex SERVICEX_ENDPOINT | Endpoint for servicex REST API | servicex.slateci.net  |
 | --dataset DATASET | Path to JSON Dataset document from DID Finder with collection of ROOT Files to process | |
 | --path PATH | Path to single Root file to transform | |
-| --chunks CHUNKS | Number of events to include in each message | 50,000 |
+| --max-message-size | Maximum size for any message in Megabytes | 14.5 Mb |
+| --chunks CHUNKS | Number of events to include in each message. If ommitted, it will compute a best guess based on heuristics and max message size | None |
 | --attrs ATTR_NAMES | List of attributes to extract | Electrons.pt(), Electrons.eta(), Electrons.phi(), Electrons.e()|
 | --limit LIMIT | Max number of events to process | |
 | --wait WAIT | Number of seconds to wait for consumer to restart | 600 seconds|
