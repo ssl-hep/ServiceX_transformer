@@ -33,12 +33,9 @@ from kafka import KafkaProducer
 
 
 class KafkaMessaging(Messaging):
-    def __init__(self, brokers):
+    def __init__(self, brokers, max_message_size=15):
 
-        self.MAX_MESSAGES_PER_REQUEST = 100
-        if 'MAX_MESSAGES_PER_REQUEST' in os.environ:
-            self.MAX_MESSAGES_PER_REQUEST = int(os.environ['MAX_MESSAGES_PER_REQUEST'])
-        print("max messages per request:", self.MAX_MESSAGES_PER_REQUEST)
+        print("Max Message size: " + str(max_message_size) + "Mb")
 
         if not brokers:
             self.brokers = ['servicex-kafka-0.slateci.net:19092',
@@ -52,7 +49,8 @@ class KafkaMessaging(Messaging):
 
         try:
             self.producer = KafkaProducer(bootstrap_servers=self.brokers,
-                                          api_version=(0, 10))
+                                          api_version=(0, 10),
+                                          max_request_size=int(max_message_size * 1e6))
             print("Kafka producer created successfully")
         except Exception as ex:
             print("Exception while getting Kafka producer", ex)
@@ -64,7 +62,7 @@ class KafkaMessaging(Messaging):
             self.producer.send(topic_name, key=str(key),
                                value=bytes)
             self.producer.flush()
-            print("Message published successfully ", len(bytes))
+            print("Message published to ", topic_name, " successfully ", len(bytes))
         except Exception as ex:
             print("Exception in publishing message", ex)
             raise
