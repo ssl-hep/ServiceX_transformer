@@ -17,7 +17,9 @@ import time
 from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.redis_messaging import RedisMessaging
 from servicex.servicex_adaptor import ServiceX
-# import uproot_methods
+from pympler import muppy, summary
+
+
 
 default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
                      "servicex-kafka-1.slateci.net:19092," \
@@ -26,7 +28,11 @@ default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
 default_attr_names = "Electrons.pt(), " \
                      "Electrons.eta(), " \
                      "Electrons.phi(), " \
-                     "Electrons.e()"
+                     "Electrons.e()," \
+                     "Muons.pt(), " \
+                     "Muons.eta(), " \
+                     "Muons.phi(), " \
+                     "Muons.e()"
 
 default_servicex_endpoint = 'https://servicex.slateci.net'
 
@@ -36,7 +42,7 @@ avg_cell_size = 42
 
 # What is the largest message we want to send (in megabytes).
 # Note this must be less than the kafka broker setting if we are using kafka
-default_max_message_size = 14.5
+default_max_message_size = 5
 
 # Number of seconds to wait for consumer to wake up
 default_wait_for_consumer = 600
@@ -118,21 +124,22 @@ def make_event_table(tree, branches, f_evt, l_evt):
                   + ", event #" + str(tree.EventInfo.eventNumber())
                   + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
 
-        particles = {}
-        full_event = {}
-        for branch_name in branches:
-            full_event[branch_name] = []
-            particles[branch_name] = getattr(tree, branch_name)
-            for i in xrange(particles[branch_name].size()):
-                particle = particles[branch_name].at(i)
-                single_particle_attr = {}
-                for a_name in branches[branch_name]:
-                    single_particle_attr[a_name] = getattr(particle, a_name.strip('()'))()
-                full_event[branch_name].append(single_particle_attr)
+        try:
+            particles = {}
+            full_event = {}
+            for branch_name in branches:
+                full_event[branch_name] = []
+                particles[branch_name] = getattr(tree, branch_name)
+                for i in xrange(particles[branch_name].size()):
+                    particle = particles[branch_name].at(i)
+                    single_particle_attr = {}
+                    for a_name in branches[branch_name]:
+                        single_particle_attr[a_name] = getattr(particle, a_name.strip('()'))()
+                    full_event[branch_name].append(single_particle_attr)
 
-        yield full_event
-
-        # if j_entry == 6000: break
+            yield full_event
+        except:
+            print("Problem occurred in event " + str(j_entry))
 
 
 def print_branches(file_name, branch_name):
@@ -318,6 +325,13 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
                         servicex.update_path_events_served(id, batch.num_rows)
 
                     waited = 0
+
+                    # Memory check
+                    all_objects = muppy.get_objects()
+                    sum1 = summary.summarize(all_objects)
+                    summary.print_(sum1)
+                    del all_objects
+                    del sum1
                     break
                 else:
                     print("not published. Waiting 10 seconds before retry.")

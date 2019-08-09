@@ -24,7 +24,7 @@ spec:
           items:
           - key: userkey
             path: userkey.pem
-            mode: 256 
+            mode: 256
           - key: usercert
             path: usercert.pem
 
@@ -34,7 +34,7 @@ spec:
         imagePullPolicy: "Always"
         resources:
           limits:
-            memory: "1000Mi"
+            memory: "2000Mi"
           requests:
             cpu: "500m"
             memory: "500Mi"
@@ -45,7 +45,7 @@ spec:
         - name: PYTHONWARNINGS
           value: "ignore:Unverified HTTPS request"
         - name: MAX_MESSAGES_PER_REQUEST
-          value: "100"        
+          value: "100"
         - name: WAIT_FOR_CONSUMER
           value: "600"
         - name: EVENTS_PER_MESSAGE
@@ -75,4 +75,3 @@ spec:
         - name: x509-certs-volume
           mountPath: "/etc/grid-certs/"
           readOnly: true
-          

@@ -15,8 +15,8 @@ ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
 CONFIG = {
     'bootstrap.servers': 'servicex-kafka-1.slateci.net:19092',
-    'group.id': 'monitor',
     'client.id': 'monitor',
+    'group.id': 'monitor',
     'session.timeout.ms': 5000,
 }
 
@@ -52,7 +52,13 @@ def validate_branches(file_name, branch_names):
 
 
 def create_kafka_topic(admin, topic):
-    new_topics = [NewTopic(topic, num_partitions=100, replication_factor=1)]
+    config = {
+        'compression.type': 'lz4',
+        'max.message.bytes': 14500000
+    }
+
+    new_topics = [NewTopic(topic, num_partitions=100, replication_factor=1,
+                           config=config)]
     response = admin.create_topics(new_topics, request_timeout=15.0)
     for topic, res in response.items():
         try:
