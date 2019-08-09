@@ -94,8 +94,7 @@ write_branches_to_ntuple () {
 
 write_branches_to_arrow () {
     export PYTHONWARNINGS="ignore:Unverified HTTPS request"
-    python xaod_branches.py --redis
-    # python xaod_branches.py --redis --path "root://xcache.mwt2.org:1094//root://dcache-atlas-xrootd.desy.de:1094//pnfs/desy.de/atlas/dq2/atlaslocalgroupdisk/rucio/mc15_13TeV/18/14/DAOD_STDM3.05630052._000013.pool.root.1"
+    python xaod_branches.py --kafka
 }
 
 
