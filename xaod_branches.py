@@ -239,7 +239,7 @@ def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, even
 
     if not rpath_output:
         print("nothing to do...")
-        time.sleep(10)
+        time.sleep(60)
         return
 
     _id = rpath_output['_id']
