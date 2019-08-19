@@ -2,6 +2,7 @@
 from __future__ import division
 
 # Set up ROOT, uproot, and RootCore:
+import datetime
 import json
 
 import math
@@ -18,6 +19,7 @@ from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.redis_messaging import RedisMessaging
 from servicex.servicex_adaptor import ServiceX
 # import uproot_methods
+import pika
 
 default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
                      "servicex-kafka-1.slateci.net:19092," \
@@ -40,6 +42,8 @@ default_max_message_size = 14.5
 
 # Number of seconds to wait for consumer to wake up
 default_wait_for_consumer = 600
+
+messaging = None
 
 parser = argparse.ArgumentParser(
     description='Transform xAOD files into flat n-tuples.')
@@ -102,6 +106,8 @@ parser.add_argument("--max-message-size", dest='max_message_size',
 parser.add_argument('--rabbit-uri', dest="rabbit_uri", action='store',
                     default='host.docker.internal')
 
+parser.add_argument('--request-id', dest='request_id', action='store',
+                    default=None, help='Request ID to read from queue')
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
@@ -160,7 +166,16 @@ def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, even
     write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit)
 
 
-def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit=None):
+def post_status_update(endpoint, status_msg):
+    requests.post(endpoint, data={
+        "timestamp": datetime.datetime.now().isoformat(),
+        "status": status_msg
+    })
+
+
+def write_branches_to_arrow(messaging, topic_name, file_path, id,
+                            attr_name_list, chunk_size, wait_for_consumer,
+                            status_endpoint, event_limit=None):
     sw = ROOT.TStopwatch()
     sw.Start()
 
@@ -226,9 +241,10 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
                           "Avg Cell Size = "+ str(avg_cell_size) + " bytes")
                     batch_number += 1
 
-                    if servicex:
-                        servicex.update_request_events_served(topic_name, batch.num_rows)
-                        servicex.update_path_events_served(id, batch.num_rows)
+                    if status_endpoint:
+                        post_status_update(status_endpoint, "Processed "+str(batch.num_rows))
+                        # servicex.update_request_events_served(topic_name, batch.num_rows)
+                        # servicex.update_path_events_served(id, batch.num_rows)
 
                     waited = 0
                     break
@@ -237,13 +253,13 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
                     time.sleep(10)
                     waited += 10
                     if waited > wait_for_consumer:
-                        if servicex:
+                        if status_endpoint:
                             servicex.post_validated_status(id)
                         sys.exit(0)
     ROOT.xAOD.ClearTransientTrees()
 
-    if servicex:
-        servicex.post_transformed_status(id)
+    if status_endpoint:
+        post_status_update(status_endpoint, "File " + file_path + " complete")
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
@@ -259,6 +275,30 @@ def transform_dataset(dataset, messaging, topic_name, id, attr_list, chunk_size,
             write_branches_to_arrow(messaging, topic_name, rec[u'file_path'],
                                     id, attr_list, chunk_size,
                                     wait_for_consumer, None, limit)
+
+
+def callback(channel, method, properties, body):
+    transform_request = json.loads(body)
+    _request_id = transform_request['request-id']
+    _file_path = transform_request['file_path']
+    _status_endpoint = transform_request['status-endpoint']
+    _id = 1
+    columns = list(map(lambda b: b.strip(),
+                       transform_request['columns'].split(",")))
+
+    print(columns)
+
+    write_branches_to_arrow(messaging=messaging,
+                            topic_name=_request_id,
+                            file_path=_file_path,
+                            id=_id,
+                            attr_name_list=columns,
+                            chunk_size=chunk_size,
+                            wait_for_consumer=wait_for_consumer,
+                            status_endpoint=_status_endpoint)
+
+    channel.basic_ack(delivery_tag=method.delivery_tag)
+
 
 
 if __name__ == "__main__":
@@ -291,6 +331,18 @@ if __name__ == "__main__":
         chunk_size = _compute_chunk_size(_attr_list, float(args.max_message_size))
 
     wait_for_consumer = int(args.wait)
+
+    if args.request_id:
+        rabbitmq = pika.BlockingConnection(
+            pika.URLParameters(args.rabbit_uri)
+        )
+        _channel = rabbitmq.channel()
+
+        _channel.basic_consume(queue=args.request_id,
+                               auto_ack=False,
+                               on_message_callback=callback)
+        _channel.start_consuming()
+
 
     print("Atlas xAOD Transformer")
     print(_attr_list)

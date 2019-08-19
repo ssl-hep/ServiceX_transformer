@@ -156,6 +156,8 @@ def callback(channel, method, properties, body):
         post_status_update(service_endpoint, "Validation Request failed "+info)
 
     print(valid, info)
+    channel.basic_ack(delivery_tag=method.delivery_tag)
+
 
 
 if __name__ == "__main__":
