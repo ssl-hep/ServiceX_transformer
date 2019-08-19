@@ -41,7 +41,7 @@ WORKDIR /usr/src/app
 
 
 # Update atlas user's startup script to always initialize the Atlas release
-# COPY bashrc /home/atlas/.bashrc
+COPY bashrc /home/atlas/.bashrc
 COPY requirements.txt .
 RUN source /home/atlas/release_setup.sh; \
     pip install --user -r requirements.txt

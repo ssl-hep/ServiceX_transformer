@@ -3,14 +3,63 @@
 # this code gets requests in state: Created, Validates request on one file
 # if request valid (all branches exist) it sets request state to Defined
 # if not it sets state to Failed, deletes all the paths belonging to that request.
+import datetime
+import json
+import sys
 
 import time
 import ROOT
 import requests
 from confluent_kafka import KafkaException, KafkaError
 from confluent_kafka.admin import AdminClient, NewTopic
+import argparse
+import pika
 
 ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
+
+# What is the largest message we want to send (in megabytes).
+# Note this must be less than the kafka broker setting if we are using kafka
+default_max_message_size = 14.5
+
+
+default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
+                     "servicex-kafka-1.slateci.net:19092," \
+                     "servicex-kafka-2.slateci.net:19092"
+
+default_servicex_endpoint = 'https://servicex.slateci.net'
+
+parser = argparse.ArgumentParser(
+    description='Validate a request and create kafka topic.')
+
+parser.add_argument("--create-topic", dest="create_topic", action='store_true',
+                    default=False, help="Just create the topic")
+
+parser.add_argument("--brokerlist", dest='brokerlist', action='store',
+                    default=default_brokerlist,
+                    help='List of Kafka broker to connect to')
+
+parser.add_argument("--topic", dest='topic', action='store',
+                    default='servicex',
+                    help='Kafka topic to publish arrays to')
+
+parser.add_argument("--chunks", dest='chunks', action='store',
+                    default=None,
+                    help='Arrow Buffer Chunksize')
+
+parser.add_argument("--servicex", dest='servicex_endpoint', action='store',
+                    default=default_servicex_endpoint,
+                    help='Endpoint for servicex')
+
+parser.add_argument("--path", dest='path', action='store',
+                    default=None,
+                    help='Path to single Root file to transform')
+
+parser.add_argument("--max-message-size", dest='max_message_size',
+                    action='store', default=default_max_message_size,
+                    help='Max message size in megabytes')
+
+parser.add_argument('--rabbit-uri', dest="rabbit_uri", action='store',
+                    default='host.docker.internal')
 
 
 CONFIG = {
@@ -48,11 +97,19 @@ def validate_branches(file_name, branch_names):
             except:
                 return(False, "No collection with name:" + branch)
 
-    return(True, "Validated OK")
+    return(True, {
+        "max_event_size": 1440
+    })
 
 
 def create_kafka_topic(admin, topic):
-    new_topics = [NewTopic(topic, num_partitions=100, replication_factor=1)]
+    config = {
+        'compression.type': 'lz4',
+        'max.message.bytes': 14500000
+    }
+
+    new_topics = [NewTopic(topic, num_partitions=100, replication_factor=1,
+                           config=config)]
     response = admin.create_topics(new_topics, request_timeout=15.0)
     for topic, res in response.items():
         try:
@@ -63,8 +120,75 @@ def create_kafka_topic(admin, topic):
             print(k_error.str())
             return(k_error.code() == 36)
 
+def post_status_update(endpoint, status_msg):
+    requests.post(endpoint + "/status", data={
+        "timestamp": datetime.datetime.now().isoformat(),
+        "status": status_msg
+    })
+
+
+def post_transform_start(endpoint, info):
+    requests.post(endpoint+"/start", json={
+        "timestamp": datetime.datetime.now().isoformat(),
+        "info": info
+    })
+
+
+def callback(channel, method, properties, body):
+    validation_request = json.loads(body)
+
+    columns = list(map(lambda b: b.strip(),
+                       validation_request['columns'].split(",")))
+
+    service_endpoint = validation_request[u'service-endpoint']
+    post_status_update(service_endpoint,
+                       "Validation Request received")
+
+    # checks the file
+    (valid, info) = validate_branches(
+        validation_request[u'file-path'], columns
+    )
+
+    if valid:
+        post_status_update(service_endpoint,  "Request validated")
+        post_transform_start(service_endpoint, info)
+    else:
+        post_status_update(service_endpoint, "Validation Request failed "+info)
+
+    print(valid, info)
+
 
 if __name__ == "__main__":
+    args = parser.parse_args()
+    rabbitmq = pika.BlockingConnection(
+        pika.URLParameters(args.rabbit_uri)
+    )
+    _channel = rabbitmq.channel()
+    _channel.queue_declare('validated_requests')
+
+    _channel.basic_consume(queue="validation_requests",
+                           auto_ack=False,
+                           on_message_callback=callback)
+    _channel.start_consuming()
+
+
+    # Convert comma separated broker string to a list
+    kafka_brokers = list(map(lambda b: b.strip(), args.brokerlist.split(",")))
+
+    CONFIG = {
+        'bootstrap.servers': kafka_brokers[0],
+        'group.id': 'monitor',
+        'client.id': 'monitor',
+        'session.timeout.ms': 5000,
+    }
+
+    kafka_admin = AdminClient(CONFIG)
+
+    if args.create_topic:
+        print("Just creating topic "+args.topic+" in kafka")
+        create_kafka_topic(kafka_admin, args.topic)
+        sys.exit(0)
+
     while True:
         # gets request in Created
         req_resp = requests.get('https://servicex.slateci.net/drequest/status/LookedUp', verify=False)
