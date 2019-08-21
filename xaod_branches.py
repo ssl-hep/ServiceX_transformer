@@ -167,15 +167,32 @@ def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, even
 
 
 def post_status_update(endpoint, status_msg):
-    requests.post(endpoint, data={
+    requests.post(endpoint+"/status", data={
         "timestamp": datetime.datetime.now().isoformat(),
         "status": status_msg
     })
 
 
+def put_file_complete(endpoint, file_path, status, num_messages=None,
+                      total_time=None):
+    doc = {
+        "file-path": file_path,
+        "status": status,
+        "num-messages": num_messages,
+        "total-time": total_time
+    }
+    print("------< ", doc)
+    requests.put(endpoint+"/file-complete", json={
+        "file-path": file_path,
+        "status": status,
+        "num-messages": num_messages,
+        "total-time": total_time
+    })
+
+
 def write_branches_to_arrow(messaging, topic_name, file_path, id,
                             attr_name_list, chunk_size, wait_for_consumer,
-                            status_endpoint, event_limit=None):
+                            server_endpoint, event_limit=None):
     sw = ROOT.TStopwatch()
     sw.Start()
 
@@ -241,8 +258,8 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id,
                           "Avg Cell Size = "+ str(avg_cell_size) + " bytes")
                     batch_number += 1
 
-                    if status_endpoint:
-                        post_status_update(status_endpoint, "Processed "+str(batch.num_rows))
+                    if server_endpoint:
+                        post_status_update(server_endpoint, "Processed "+str(batch.num_rows))
                         # servicex.update_request_events_served(topic_name, batch.num_rows)
                         # servicex.update_path_events_served(id, batch.num_rows)
 
@@ -253,17 +270,19 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id,
                     time.sleep(10)
                     waited += 10
                     if waited > wait_for_consumer:
-                        if status_endpoint:
+                        if server_endpoint:
                             servicex.post_validated_status(id)
                         sys.exit(0)
     ROOT.xAOD.ClearTransientTrees()
 
-    if status_endpoint:
-        post_status_update(status_endpoint, "File " + file_path + " complete")
+    if server_endpoint:
+        post_status_update(server_endpoint, "File " + file_path + " complete")
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
+    put_file_complete(server_endpoint, file_path, "success",
+                      batch_number, sw.RealTime())
 
 
 def transform_dataset(dataset, messaging, topic_name, id, attr_list, chunk_size,
@@ -280,8 +299,8 @@ def transform_dataset(dataset, messaging, topic_name, id, attr_list, chunk_size,
 def callback(channel, method, properties, body):
     transform_request = json.loads(body)
     _request_id = transform_request['request-id']
-    _file_path = transform_request['file_path']
-    _status_endpoint = transform_request['status-endpoint']
+    _file_path = transform_request['file-path']
+    _server_endpoint = transform_request['service-endpoint']
     _id = 1
     columns = list(map(lambda b: b.strip(),
                        transform_request['columns'].split(",")))
@@ -295,7 +314,7 @@ def callback(channel, method, properties, body):
                             attr_name_list=columns,
                             chunk_size=chunk_size,
                             wait_for_consumer=wait_for_consumer,
-                            status_endpoint=_status_endpoint)
+                            server_endpoint=_server_endpoint)
 
     channel.basic_ack(delivery_tag=method.delivery_tag)
 

@@ -36,6 +36,7 @@ class KafkaMessaging(Messaging):
     def __init__(self, brokers, max_message_size=15):
 
         print("Max Message size: " + str(max_message_size) + "Mb")
+        self.max_message_size = max_message_size
 
         if not brokers:
             self.brokers = ['servicex-kafka-0.slateci.net:19092',
@@ -58,11 +59,12 @@ class KafkaMessaging(Messaging):
 
     def publish_message(self, topic_name, key, value_buffer):
         try:
-            bytes = value_buffer.to_pybytes()
+            msg_bytes = value_buffer.to_pybytes()
             self.producer.send(topic_name, key=str(key),
-                               value=bytes)
+                               value=msg_bytes)
             self.producer.flush()
-            print("Message published to ", topic_name, " successfully ", len(bytes))
+            print("Message published to ", topic_name, " successfully ",
+                  len(msg_bytes))
         except Exception as ex:
             print("Exception in publishing message", ex)
             raise
