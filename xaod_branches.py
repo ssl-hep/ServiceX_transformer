@@ -305,7 +305,7 @@ def callback(channel, method, properties, body):
     columns = list(map(lambda b: b.strip(),
                        transform_request['columns'].split(",")))
 
-    print(columns)
+    print(_file_path)
 
     write_branches_to_arrow(messaging=messaging,
                             topic_name=_request_id,
@@ -356,6 +356,9 @@ if __name__ == "__main__":
             pika.URLParameters(args.rabbit_uri)
         )
         _channel = rabbitmq.channel()
+
+        # Set to one since our ops take a long time. Give another client a chance
+        _channel.basic_qos(prefetch_count=1)
 
         _channel.basic_consume(queue=args.request_id,
                                auto_ack=False,
