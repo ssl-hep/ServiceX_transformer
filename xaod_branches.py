@@ -124,22 +124,19 @@ def make_event_table(tree, branches, f_evt, l_evt):
                   + ", event #" + str(tree.EventInfo.eventNumber())
                   + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
 
-        try:
-            particles = {}
-            full_event = {}
-            for branch_name in branches:
-                full_event[branch_name] = []
-                particles[branch_name] = getattr(tree, branch_name)
-                for i in xrange(particles[branch_name].size()):
-                    particle = particles[branch_name].at(i)
-                    single_particle_attr = {}
-                    for a_name in branches[branch_name]:
-                        single_particle_attr[a_name] = getattr(particle, a_name.strip('()'))()
-                    full_event[branch_name].append(single_particle_attr)
+        particles = {}
+        full_event = {}
+        for branch_name in branches:
+            full_event[branch_name] = []
+            particles[branch_name] = getattr(tree, branch_name)
+            for i in xrange(particles[branch_name].size()):
+                particle = particles[branch_name].at(i)
+                single_particle_attr = {}
+                for a_name in branches[branch_name]:
+                    single_particle_attr[a_name] = getattr(particle, a_name.strip('()'))()
+                full_event[branch_name].append(single_particle_attr)
 
-            yield full_event
-        except:
-            print("Problem occurred in event " + str(j_entry))
+        yield full_event
 
 
 def print_branches(file_name, branch_name):
@@ -285,9 +282,14 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
         first_event = i_chunk * chunk_size
         last_event = min((i_chunk + 1) * chunk_size, n_entries)
 
-        object_array = awkward.fromiter(
-            make_event_table(tree_in, branches, first_event, last_event)
-        )
+        try:
+            object_array = awkward.fromiter(
+                make_event_table(tree_in, branches, first_event, last_event)
+            )
+        except:
+            print("Problem reading file " + file_path)
+            servicex.post_failed_status(id)
+            break
 
         attr_dict = {}
         for attr_name in attr_name_list:

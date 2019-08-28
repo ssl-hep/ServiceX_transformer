@@ -67,8 +67,5 @@ class ServiceX:
         requests.put(self._servicex('/dpath/status/' + path_id + '/Transformed'),
                      verify=False)
 
-
-
-
-
-
+    def post_failed_status(self, path_id):
+        requests.put(self._servicex('/dpath/status/' + path_id + '/Failed'))
