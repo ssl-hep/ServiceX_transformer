@@ -255,98 +255,97 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
     sw = ROOT.TStopwatch()
     sw.Start()
 
-    file_in = ROOT.TFile.Open(file_path)
-    tree_in = ROOT.xAOD.MakeTransientTree(file_in)
+    try:
+        file_in = ROOT.TFile.Open(file_path)
+        tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
-    branches = {}
-    for attr_name in attr_name_list:
-        attr_name = str(attr_name)
-        if not attr_name.split('.')[0].strip(' ') in branches:
-            branches[attr_name.split('.')[0].strip(' ')] = [attr_name.split('.')[1]]
-        else:
-            branches[attr_name.split('.')[0].strip(' ')].append(attr_name.split('.')[1])
+        branches = {}
+        for attr_name in attr_name_list:
+            attr_name = str(attr_name)
+            if not attr_name.split('.')[0].strip(' ') in branches:
+                branches[attr_name.split('.')[0].strip(' ')] = [attr_name.split('.')[1]]
+            else:
+                branches[attr_name.split('.')[0].strip(' ')].append(attr_name.split('.')[1])
 
-    tree_in.SetBranchStatus('*', 0)
-    tree_in.SetBranchStatus('EventInfo', 1)
-    for branch_name in branches:
-        tree_in.SetBranchStatus(branch_name, 1)
+        tree_in.SetBranchStatus('*', 0)
+        tree_in.SetBranchStatus('EventInfo', 1)
+        for branch_name in branches:
+            tree_in.SetBranchStatus(branch_name, 1)
 
-    n_entries = tree_in.GetEntries()
-    print("Total entries: " + str(n_entries))
-    if event_limit:
-        n_entries = min(n_entries, event_limit)
-        print("Limiting to the first "+str(n_entries)+" events")
+        n_entries = tree_in.GetEntries()
+        print("Total entries: " + str(n_entries))
+        if event_limit:
+            n_entries = min(n_entries, event_limit)
+            print("Limiting to the first "+str(n_entries)+" events")
 
-    n_chunks = int(math.ceil(n_entries / chunk_size))
-    for i_chunk in xrange(n_chunks):
-        first_event = i_chunk * chunk_size
-        last_event = min((i_chunk + 1) * chunk_size, n_entries)
+        n_chunks = int(math.ceil(n_entries / chunk_size))
+        for i_chunk in xrange(n_chunks):
+            first_event = i_chunk * chunk_size
+            last_event = min((i_chunk + 1) * chunk_size, n_entries)
 
-        try:
             object_array = awkward.fromiter(
                 make_event_table(tree_in, branches, first_event, last_event)
             )
-        except:
-            print("Problem reading file " + file_path)
-            servicex.post_failed_status(id)
-            break
 
-        attr_dict = {}
-        for attr_name in attr_name_list:
-            branch_name = attr_name.split('.')[0].strip(' ')
-            a_name = attr_name.split('.')[1]
-            attr_dict[branch_name + '_' + a_name.strip('()')] = object_array[branch_name][a_name]
+            attr_dict = {}
+            for attr_name in attr_name_list:
+                branch_name = attr_name.split('.')[0].strip(' ')
+                a_name = attr_name.split('.')[1]
+                attr_dict[branch_name + '_' + a_name.strip('()')] = object_array[branch_name][a_name]
 
-        object_table = awkward.Table(**attr_dict)
-        pa_table = awkward.toarrow(object_table)
-        batches = pa_table.to_batches(chunksize=chunk_size)
+            object_table = awkward.Table(**attr_dict)
+            pa_table = awkward.toarrow(object_table)
+            batches = pa_table.to_batches(chunksize=chunk_size)
 
-        # Leaving this for now; currently batches is a list of size 1,
-        # but it gives us the flexibility to define an iterator over
-        # multiple batches in the future
-        batch_number = i_chunk * len(batches)
-        for batch in batches:
-            sink = pa.BufferOutputStream()
-            writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-            writer.write_batch(batch)
-            writer.close()
-            while True:
-                key = file_path + "-" + str(batch_number)
-                published = messaging.publish_message(topic_name, key, sink.getvalue())
+            # Leaving this for now; currently batches is a list of size 1,
+            # but it gives us the flexibility to define an iterator over
+            # multiple batches in the future
+            batch_number = i_chunk * len(batches)
+            for batch in batches:
+                sink = pa.BufferOutputStream()
+                writer = pa.RecordBatchStreamWriter(sink, batch.schema)
+                writer.write_batch(batch)
+                writer.close()
+                while True:
+                    key = file_path + "-" + str(batch_number)
+                    published = messaging.publish_message(topic_name, key, sink.getvalue())
 
-                if published:
-                    avg_cell_size = len(sink.getvalue().to_pybytes()) / len(attr_name_list) / batch.num_rows
-                    print("Batch number " + str(batch_number) + ", "
-                             + str(batch.num_rows) +
-                          " events published to " + topic_name,
-                          "Avg Cell Size = "+ str(avg_cell_size) + " bytes")
-                    batch_number += 1
+                    if published:
+                        avg_cell_size = len(sink.getvalue().to_pybytes()) / len(attr_name_list) / batch.num_rows
+                        print("Batch number " + str(batch_number) + ", "
+                                 + str(batch.num_rows) +
+                              " events published to " + topic_name,
+                              "Avg Cell Size = "+ str(avg_cell_size) + " bytes")
+                        batch_number += 1
 
-                    if servicex:
-                        servicex.update_request_events_served(topic_name, batch.num_rows)
-                        servicex.update_path_events_served(id, batch.num_rows)
-
-                    waited = 0
-
-                    # Memory check
-                    all_objects = muppy.get_objects()
-                    sum1 = summary.summarize(all_objects)
-                    summary.print_(sum1)
-                    del all_objects
-                    del sum1
-                    break
-                else:
-                    print("not published. Waiting 10 seconds before retry.")
-                    time.sleep(10)
-                    waited += 10
-                    if waited > wait_for_consumer:
                         if servicex:
-                            servicex.post_validated_status(id)
-                        sys.exit(0)
-    ROOT.xAOD.ClearTransientTrees()
+                            servicex.update_request_events_served(topic_name, batch.num_rows)
+                            servicex.update_path_events_served(id, batch.num_rows)
 
-    if servicex:
-        servicex.post_transformed_status(id)
+                        waited = 0
+
+                        # Memory check
+                        all_objects = muppy.get_objects()
+                        sum1 = summary.summarize(all_objects)
+                        summary.print_(sum1)
+                        del all_objects
+                        del sum1
+                        break
+                    else:
+                        print("not published. Waiting 10 seconds before retry.")
+                        time.sleep(10)
+                        waited += 10
+                        if waited > wait_for_consumer:
+                            if servicex:
+                                servicex.post_validated_status(id)
+                            sys.exit(0)
+        ROOT.xAOD.ClearTransientTrees()
+
+        if servicex:
+            servicex.post_transformed_status(id)
+    except:
+        print("Problem reading file " + file_path)
+        servicex.post_failed_status(id)
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
