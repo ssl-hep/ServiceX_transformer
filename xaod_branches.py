@@ -21,6 +21,8 @@ from servicex.servicex_adaptor import ServiceX
 # import uproot_methods
 import pika
 
+from servicex.transformer.xaod_transformer import XAODTransformer
+
 default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
                      "servicex-kafka-1.slateci.net:19092," \
                      "servicex-kafka-2.slateci.net:19092"
@@ -195,22 +197,10 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id,
                             server_endpoint, event_limit=None):
     sw = ROOT.TStopwatch()
     sw.Start()
+    transformer = XAODTransformer(file_path, attr_name_list)
 
     file_in = ROOT.TFile.Open(file_path)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
-
-    branches = {}
-    for attr_name in attr_name_list:
-        attr_name = str(attr_name)
-        if not attr_name.split('.')[0].strip(' ') in branches:
-            branches[attr_name.split('.')[0].strip(' ')] = [attr_name.split('.')[1]]
-        else:
-            branches[attr_name.split('.')[0].strip(' ')].append(attr_name.split('.')[1])
-
-    tree_in.SetBranchStatus('*', 0)
-    tree_in.SetBranchStatus('EventInfo', 1)
-    for branch_name in branches:
-        tree_in.SetBranchStatus(branch_name, 1)
 
     n_entries = tree_in.GetEntries()
     print("Total entries: " + str(n_entries))
@@ -220,21 +210,7 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id,
 
     n_chunks = int(math.ceil(n_entries / chunk_size))
     for i_chunk in xrange(n_chunks):
-        first_event = i_chunk * chunk_size
-        last_event = min((i_chunk + 1) * chunk_size, n_entries)
-
-        object_array = awkward.fromiter(
-            make_event_table(tree_in, branches, first_event, last_event)
-        )
-
-        attr_dict = {}
-        for attr_name in attr_name_list:
-            branch_name = attr_name.split('.')[0].strip(' ')
-            a_name = attr_name.split('.')[1]
-            attr_dict[branch_name + '_' + a_name.strip('()')] = object_array[branch_name][a_name]
-
-        object_table = awkward.Table(**attr_dict)
-        pa_table = awkward.toarrow(object_table)
+        pa_table = transformer.arrow_table(chunk_size, event_limit)
         batches = pa_table.to_batches(chunksize=chunk_size)
 
         # Leaving this for now; currently batches is a list of size 1,

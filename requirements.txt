@@ -6,3 +6,5 @@ confluent_kafka
 redis
 pympler
 pika
+pytest
+pytest-mock

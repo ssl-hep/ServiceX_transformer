@@ -95,3 +95,17 @@ From here you can:
 ```bash
 %  bin/kafka-log-dirs.sh --describe --bootstrap-server servicex-kafka-0.slateci.net:19092 --topic-list servicex | grep '{' | jq '.brokers[].logDirs[].partitions[].size' | grep '^[^0]'
 ```
+
+## Running Tests
+Validation of the code logic is performed using 
+[pytest](https://docs.pytest.org/en/latest/) and 
+[pytest-mock](https://github.com/pytest-dev/pytest-mock). Unit test fixtures are
+in `test` directories inside each package. The tests depend on imports that 
+are found inside the atlas docker container, so they are usually run inside 
+a container. 
+
+Start up the container and run unit tests with:
+```bash
+ docker run sslhep/servicex-transformer:rabbitmq bash -c "source /home/atlas/.bashrc && pytest --rootdir /home/atlas -s"
+```
+
