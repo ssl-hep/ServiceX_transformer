@@ -37,7 +37,7 @@ class ServiceX:
 
     def get_transform_requests(self):
         rpath_output = requests.get(
-            self._servicex('/dpath/transform'),
+            self._servicex('/dpath/to_transform'),
             verify=False)
 
         if rpath_output.text == 'false':
@@ -51,22 +51,26 @@ class ServiceX:
             verify=False)
         return request_output.json()
 
-    def update_request_events_served(self, request_id, num_events):
-        requests.put(self._servicex('/drequest/events_served/' + request_id +
-                     '/' + str(num_events)), verify=False)
+    def update_events_served(self, request_id, path_id, num_events):
+        requests.put(self._servicex('/events_served/' + request_id + '/'
+                     + path_id + '/' + str(num_events)), verify=False)
 
-    def update_path_events_served(self, path_id, num_events):
-        requests.put(self._servicex('/dpath/events_served/' + path_id +
-                     '/' + str(num_events)), verify=False)
+    # def update_request_events_served(self, request_id, num_events):
+        # requests.put(self._servicex('/drequest/events_served/' + request_id +
+                     # '/' + str(num_events)), verify=False)
+
+    # def update_path_events_served(self, path_id, num_events):
+        # requests.put(self._servicex('/dpath/events_served/' + path_id +
+                     # '/' + str(num_events)), verify=False)
 
     def post_validated_status(self, path_id):
-        requests.put(self._servicex('/dpath/status/' + path_id + '/Validated'),
+        requests.put(self._servicex('/dpath/status/' + path_id + '/Validated/OK'),
                      verify=False)
 
     def post_transformed_status(self, path_id):
-        requests.put(self._servicex('/dpath/status/' + path_id + '/Transformed'),
+        requests.put(self._servicex('/dpath/status/' + path_id + '/Transformed/OK'),
                      verify=False)
 
-    def post_failed_status(self, path_id):
-        requests.put(self._servicex('/dpath/status/' + path_id + '/Failed'),
+    def post_failed_status(self, path_id, pod_id):
+        requests.put(self._servicex('/dpath/status/' + path_id + '/Failed/' + pod_id),
                      verify=False)

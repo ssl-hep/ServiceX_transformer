@@ -34,7 +34,8 @@ default_attr_names = "Electrons.pt(), " \
                      "Muons.phi(), " \
                      "Muons.e()"
 
-default_servicex_endpoint = 'https://servicex.slateci.net'
+# default_servicex_endpoint = 'https://servicex.slateci.net'
+default_servicex_endpoint = 'https://servicex-frontend.uc.ssl-hep.org:80'
 
 # How many bytes does an average awkward array cell take up. This is just
 # a rule of thumb to calculate chunksize
@@ -345,7 +346,8 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
             servicex.post_transformed_status(id)
     except:
         print("Problem reading file " + file_path)
-        servicex.post_failed_status(id)
+        MY_POD_NAME = os.environ.get('MY_POD_NAME')
+        servicex.post_failed_status(id, MY_POD_NAME)
 
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")

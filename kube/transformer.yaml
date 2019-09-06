@@ -33,8 +33,8 @@ spec:
         image: sslhep/servicex-transformer:latest
         imagePullPolicy: "Always"
         resources:
-          limits:
-            memory: "2000Mi"
+          # limits:
+          #   memory: "8000Mi"
           requests:
             cpu: "500m"
             memory: "500Mi"
@@ -50,6 +50,10 @@ spec:
           value: "600"
         - name: EVENTS_PER_MESSAGE
           value: "500"
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         volumeMounts:
         - name: x509-data
           mountPath: "/etc/grid-security/"
