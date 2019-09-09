@@ -240,14 +240,14 @@ def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, even
         time.sleep(60)
         return
 
-    _id = rpath_output['_id']
-    _file_path = rpath_output['_source']['file_path']
-    _request_id = rpath_output['_source']['req_id']
+    _id = rpath_output['pathId']
+    _file_path = rpath_output['file_path']
+    _request_id = rpath_output['req_id']
     print("Received ID: " + _id + ", path: " + _file_path)
 
     request_output = servicex.get_request_info(_request_id)
 
-    attr_name_list = request_output['_source']['columns']
+    attr_name_list = request_output['columns']
     print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
     write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit)
 
