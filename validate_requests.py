@@ -73,7 +73,7 @@ def create_kafka_topic(admin, topic):
 if __name__ == "__main__":
     while True:
         # gets request in Created
-        req_resp = requests.get('https://servicex.slateci.net/drequest/status/LookedUp', verify=False)
+        req_resp = requests.get('http://servicex-frontend.uc.ssl-hep.org:80/drequest/status/LookedUp', verify=False)
         try:
             req = req_resp.json()
         except ValueError:
@@ -84,11 +84,11 @@ if __name__ == "__main__":
             continue
         # print(req)
 
-        req_id = req['_id']
-        branches = req['_source']['columns']
+        req_id = req['reqId']
+        branches = req['columns']
 
         # gets one file belonging to this request
-        path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+        path_res = requests.get('http://servicex-frontend.uc.ssl-hep.org:80/dpath/' + req_id + '/Created', verify=False)
         try:
             pat = path_res.json()
         except ValueError:
@@ -101,30 +101,30 @@ if __name__ == "__main__":
         # print(pat)
 
         # checks the file
-        (valid, info) = validate_branches(pat['_source']['file_path'], branches)
+        (valid, info) = validate_branches(pat['file_path'], branches)
 
         if valid:
             # sets all the files to "Validated"
             while True:
-                path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+                path_res = requests.get('http://servicex-frontend.uc.ssl-hep.org:80/dpath/' + req_id + '/Created', verify=False)
                 pat = path_res.json()
                 if not pat:
                     break
-                path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Validated', verify=False)
-                print('path: ' + pat['_id'] + ' validation: ' + str(path_res.status_code))
+                path_res = requests.put('http://servicex-frontend.uc.ssl-hep.org:80/dpath/status/' + pat['pathId'] + '/Validated/' + info, verify=False)
+                print('path: ' + pat['pathId'] + ' validation: ' + str(path_res.status_code))
             # sets request to "Validated"
-            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Validated/' + info, verify=False)
+            requests.put('http://servicex-frontend.uc.ssl-hep.org:80/drequest/status/' + req_id + '/Validated/' + info, verify=False)
 
             create_kafka_topic(ADMIN, req_id)
 
         else:
             # fails all files
             while True:
-                path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+                path_res = requests.get('http://servicex-frontend.uc.ssl-hep.org:80/dpath/' + req_id + '/Created', verify=False)
                 pat = path_res.json()
                 if not pat:
                     break
-                path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Failed', verify=False)
-                print('path: ' + pat['_id'] + ' failing: ' + str(path_res.status_code))
+                path_res = requests.put('http://servicex-frontend.uc.ssl-hep.org:80/dpath/status/' + pat['pathId'] + '/Failed/' + info, verify=False)
+                print('path: ' + pat['pathId'] + ' failing: ' + str(path_res.status_code))
             # sets request to "Failed"
-            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Failed/' + info, verify=False)
+            requests.put('http://servicex-frontend.uc.ssl-hep.org:80/drequest/status/' + req_id + '/Failed/' + info, verify=False)
