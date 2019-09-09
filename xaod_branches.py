@@ -320,8 +320,7 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id, attr_name_list
                         batch_number += 1
 
                         if servicex:
-                            servicex.update_request_events_served(topic_name, batch.num_rows)
-                            servicex.update_path_events_served(id, batch.num_rows)
+                            servicex.update_events_served(topic_name, id, batch.num_rows)
 
                         waited = 0
 
