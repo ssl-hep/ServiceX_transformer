@@ -1,0 +1,2 @@
+make validate_request configuration go through kubernetes secret
+this config also tells what is backend (redis or kafka).
