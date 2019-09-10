@@ -35,7 +35,7 @@ default_attr_names = "Electrons.pt(), " \
                      "Muons.e()"
 
 # default_servicex_endpoint = 'https://servicex.slateci.net'
-default_servicex_endpoint = 'http://servicex-frontend.uc.ssl-hep.org:80'
+default_servicex_endpoint = 'https://servicex-frontend.uc.ssl-hep.org:80'
 
 # How many bytes does an average awkward array cell take up. This is just
 # a rule of thumb to calculate chunksize
