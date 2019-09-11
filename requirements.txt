@@ -8,3 +8,4 @@ pympler
 pika
 pytest
 pytest-mock
+flake8==3.5
