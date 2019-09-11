@@ -27,6 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
+# noinspection PyClassHasNoInit,PyMethodMayBeStatic
 class TestXAODEvents:
     def _generate_mock_phys_obj(self, mock, mock_map):
         a_key = list(mock_map.keys())[0]
@@ -53,10 +54,6 @@ class TestXAODEvents:
             "Electrons.pt()", "Electrons.eta()",  "Muons.e()"
         ]
 
-        mock_file = mock.Mock()
-        open_mock = mocker.patch.object(ROOT.TFile, 'Open',
-                                        return_value=mock_file)
-
         mock_tree = mock.Mock()
         xaod_mock = mocker.patch.object(ROOT, "xAOD")
         xaod_mock.MakeTransientTree = mock.Mock(return_value=mock_tree)
@@ -66,8 +63,6 @@ class TestXAODEvents:
         event_iterator = XAODEvents("foo/bar", attr_names)
 
         assert event_iterator.get_entry_count() == 2
-
-
 
     def test_event_iter(self, mocker):
         import ROOT
@@ -119,6 +114,7 @@ class TestXAODEvents:
         mock_tree.GetEntry.assert_called_with(999)
         mock_tree.Muons.at.assert_called_with(2)
         mock_tree.Electrons.at.assert_called_with(1)
+        open_mock.assert_called_with("foo/bar")
 
         assert len(array['Muons']) == 3
         assert len(array['Electrons']) == 2
@@ -148,4 +144,3 @@ class TestXAODEvents:
 
     def batch_larger_than_max_message_bytes(self, mocker):
         assert True
-

@@ -8,19 +8,18 @@ import json
 import math
 import os
 import sys
+# noinspection PyPackageRequirements
 import ROOT
 import argparse
-import numpy as np
 import pyarrow as pa
-import awkward
 import requests
 import time
 from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.redis_messaging import RedisMessaging
 from servicex.servicex_adaptor import ServiceX
-# import uproot_methods
 import pika
 
+from servicex.transformer.xaod_events import XAODEvents
 from servicex.transformer.xaod_transformer import XAODTransformer
 
 default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
@@ -139,7 +138,8 @@ def make_event_table(tree, branches, f_evt, l_evt):
                 particle = particles[branch_name].at(i)
                 single_particle_attr = {}
                 for a_name in branches[branch_name]:
-                    single_particle_attr[a_name] = getattr(particle, a_name.strip('()'))()
+                    single_particle_attr[a_name] = \
+                        getattr(particle, a_name.strip('()'))()
                 full_event[branch_name].append(single_particle_attr)
 
         yield full_event
@@ -147,8 +147,8 @@ def make_event_table(tree, branches, f_evt, l_evt):
         # if j_entry == 6000: break
 
 
-def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, event_limit=None):
-    waited = 0
+def poll_for_root_files(servicex, messaging, chunk_size,
+                        wait_for_consumer, event_limit=None):
     rpath_output = servicex.get_transform_requests()
 
     if not rpath_output:
@@ -164,8 +164,13 @@ def poll_for_root_files(servicex, messaging, chunk_size, wait_for_consumer, even
     request_output = servicex.get_request_info(_request_id)
 
     attr_name_list = request_output['_source']['columns']
-    print("Received request: " + _request_id + ", columns: " + str(attr_name_list))
-    write_branches_to_arrow(messaging, _request_id, _file_path, _id, attr_name_list, chunk_size, wait_for_consumer, servicex, event_limit)
+    print("Received request: " +
+          _request_id +
+          ", columns: " +
+          str(attr_name_list))
+    write_branches_to_arrow(messaging, _request_id, _file_path, _id,
+                            attr_name_list, chunk_size, wait_for_consumer,
+                            servicex, event_limit)
 
 
 def post_status_update(endpoint, status_msg):
@@ -192,12 +197,13 @@ def put_file_complete(endpoint, file_path, status, num_messages=None,
     })
 
 
-def write_branches_to_arrow(messaging, topic_name, file_path, id,
+def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id,
                             attr_name_list, chunk_size, wait_for_consumer,
                             server_endpoint, event_limit=None):
     sw = ROOT.TStopwatch()
     sw.Start()
-    transformer = XAODTransformer(file_path, attr_name_list)
+    event_iterator = XAODEvents(file_path, attr_name_list)
+    transformer = XAODTransformer(event_iterator)
 
     file_in = ROOT.TFile.Open(file_path)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
@@ -209,7 +215,9 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id,
         print("Limiting to the first "+str(n_entries)+" events")
 
     n_chunks = int(math.ceil(n_entries / chunk_size))
+    batch_number = 0
     for i_chunk in xrange(n_chunks):
+        waited = 0
         pa_table = transformer.arrow_table(chunk_size, event_limit)
         batches = pa_table.to_batches(chunksize=chunk_size)
 
@@ -224,21 +232,24 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id,
             writer.close()
             while True:
                 key = file_path + "-" + str(batch_number)
-                published = messaging.publish_message(topic_name, key, sink.getvalue())
+                published = messaging.publish_message(
+                    topic_name,
+                    key,
+                    sink.getvalue())
 
                 if published:
-                    avg_cell_size = len(sink.getvalue().to_pybytes()) / len(attr_name_list) / batch.num_rows
+                    avg_cell_size = len(sink.getvalue().to_pybytes()) \
+                                    / len(attr_name_list) \
+                                    / batch.num_rows
                     print("Batch number " + str(batch_number) + ", "
-                             + str(batch.num_rows) +
+                          + str(batch.num_rows) +
                           " events published to " + topic_name,
-                          "Avg Cell Size = "+ str(avg_cell_size) + " bytes")
+                          "Avg Cell Size = " + str(avg_cell_size) + " bytes")
                     batch_number += 1
 
                     if server_endpoint:
-                        post_status_update(server_endpoint, "Processed "+str(batch.num_rows))
-                        # servicex.update_request_events_served(topic_name, batch.num_rows)
-                        # servicex.update_path_events_served(id, batch.num_rows)
-
+                        post_status_update(server_endpoint, "Processed " +
+                                           str(batch.num_rows))
                     waited = 0
                     break
                 else:
@@ -247,7 +258,7 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id,
                     waited += 10
                     if waited > wait_for_consumer:
                         if server_endpoint:
-                            servicex.post_validated_status(id)
+                            servicex.post_validated_status(servicex_id)
                         sys.exit(0)
     ROOT.xAOD.ClearTransientTrees()
 
@@ -261,17 +272,19 @@ def write_branches_to_arrow(messaging, topic_name, file_path, id,
                       batch_number, sw.RealTime())
 
 
-def transform_dataset(dataset, messaging, topic_name, id, attr_list, chunk_size,
+def transform_dataset(dataset, messaging, topic_name, servicex_id,
+                      attr_list, chunk_size,
                       wait_for_consumer, limit):
     with open(dataset, 'r') as f:
         datasets = json.load(f)
         for rec in datasets:
             print "Transforming ", rec[u'file_path'], rec[u'file_events']
             write_branches_to_arrow(messaging, topic_name, rec[u'file_path'],
-                                    id, attr_list, chunk_size,
+                                    servicex_id, attr_list, chunk_size,
                                     wait_for_consumer, None, limit)
 
 
+# noinspection PyUnusedLocal
 def callback(channel, method, properties, body):
     transform_request = json.loads(body)
     _request_id = transform_request['request-id']
@@ -286,14 +299,13 @@ def callback(channel, method, properties, body):
     write_branches_to_arrow(messaging=messaging,
                             topic_name=_request_id,
                             file_path=_file_path,
-                            id=_id,
+                            servicex_id=_id,
                             attr_name_list=columns,
                             chunk_size=chunk_size,
                             wait_for_consumer=wait_for_consumer,
                             server_endpoint=_server_endpoint)
 
     channel.basic_ack(delivery_tag=method.delivery_tag)
-
 
 
 if __name__ == "__main__":
@@ -323,7 +335,8 @@ if __name__ == "__main__":
     if args.chunks:
         chunk_size = int(args.chunks)
     else:
-        chunk_size = _compute_chunk_size(_attr_list, float(args.max_message_size))
+        chunk_size = _compute_chunk_size(_attr_list,
+                                         float(args.max_message_size))
 
     wait_for_consumer = int(args.wait)
 
@@ -333,14 +346,14 @@ if __name__ == "__main__":
         )
         _channel = rabbitmq.channel()
 
-        # Set to one since our ops take a long time. Give another client a chance
+        # Set to one since our ops take a long time.
+        # Give another client a chance
         _channel.basic_qos(prefetch_count=1)
 
         _channel.basic_consume(queue=args.request_id,
                                auto_ack=False,
                                on_message_callback=callback)
         _channel.start_consuming()
-
 
     print("Atlas xAOD Transformer")
     print(_attr_list)

@@ -29,6 +29,7 @@
 from collections import OrderedDict
 
 
+# noinspection PyClassHasNoInit
 class TestXAODTransformer:
 
     def test_arrow_table(self, mocker):
@@ -82,5 +83,3 @@ class TestXAODTransformer:
         ])
 
         iterator.iterate.assert_called_with(0, 10)
-
-

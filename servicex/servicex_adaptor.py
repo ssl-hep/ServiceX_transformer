@@ -66,9 +66,3 @@ class ServiceX:
     def post_transformed_status(self, path_id):
         requests.put(self._servicex('/dpath/status/' + path_id + '/Transformed'),
                      verify=False)
-
-
-
-
-
-
