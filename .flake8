@@ -6,4 +6,6 @@ exclude =
     validate_requests.py
     find_m.py
     messaging.py
+    .local
+
 

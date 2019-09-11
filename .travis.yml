@@ -9,4 +9,5 @@ before_script:
 script:
   - docker build --cache-from sslhep/servicex-transformer:rabbitmq -t sslhep/servicex-transformer:rabbitmq .
   - docker run sslhep/servicex-transformer:rabbitmq bash -c "source /home/atlas/.bashrc && flake8"
-  - docker run sslhep/servicex-transformer:rabbitmq bash -c "source /home/atlas/.bashrc && pytest -v --rootdir /home/atlas"
+  - docker run -e "CODECOV_TOKEN=$CODECOV_TOKEN" sslhep/servicex-transformer:rabbitmq bash -c "source /home/atlas/.bashrc &&  coverage run -m pytest -v; codecov"
+

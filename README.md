@@ -1,5 +1,9 @@
 # ServiceX_transformer Repo for input-output transformation code for ServiceX
 
+[![Build Status](https://travis-ci.org/ssl-hep/ServiceX_transformer.svg?branch=pytest)](https://travis-ci.org/ssl-hep/ServiceX_transformer)
+[![codecov](https://codecov.io/gh/ssl-hep/ServiceX_transformer/branch/master/graph/badge.svg)](https://codecov.io/gh/ssl-hep/ServiceX_transformer)
+
+
 Allows user to access an xAOD-formatted TTree in a ROOT file via a standalone
 ATLAS analysis release. This is based a Docker image found here:
     https://hub.docker.com/r/atlas/analysisbase

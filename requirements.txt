@@ -9,3 +9,5 @@ pika
 pytest
 pytest-mock
 flake8==3.5
+coverage==4.5.2
+codecov==2.0.15
