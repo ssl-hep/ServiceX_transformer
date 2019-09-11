@@ -22,7 +22,7 @@ CONFIG = {
 
 ADMIN = AdminClient(CONFIG)
 
-default_servicex_endpoint = 'https://servicex-frontend.uc.ssl-hep.org:80'
+default_servicex_endpoint = 'https://servicex-frontend.uc.ssl-hep.org:443'
 
 
 def validate_branches(file_name, branch_names):
