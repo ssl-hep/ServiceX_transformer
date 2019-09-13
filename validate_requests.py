@@ -59,7 +59,7 @@ def create_kafka_topic(admin, topic):
         'max.message.bytes': 14500000
     }
 
-    new_topics = [NewTopic(topic, num_partitions=100, replication_factor=1,
+    new_topics = [NewTopic(topic, num_partitions=10, replication_factor=1,
                            config=config)]
     response = admin.create_topics(new_topics, request_timeout=15.0)
     for topic, res in response.items():
