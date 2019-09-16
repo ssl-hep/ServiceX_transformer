@@ -110,6 +110,18 @@ a container.
 
 Start up the container and run unit tests with:
 ```bash
- docker run sslhep/servicex-transformer:rabbitmq bash -c "source /home/atlas/.bashrc && pytest --rootdir /home/atlas -s"
+ docker run sslhep/servicex-transformer:rabbitmq bash -c "source /home/atlas/.bashrc && pytest -s"
 ```
+
+The tests are instrumented with code coverage reporting via 
+[codecov](https://codecov.io/gh/ssl-hep/ServiceX_transformer). The travis
+job has a the codecov upload token set as an environment variable which is
+passed into the docker container so the report can be uploaded upon successful
+conclusion of the tests.
+
+## Coding Standards
+To make it easier for multiple people to work on the codebase, we enforce PEP8
+standards, verified by flake8. The community has found that the 80 character
+limit is a bit awkward, so we have a local config setting the `max_line_length`
+to 99.
 
