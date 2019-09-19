@@ -26,44 +26,39 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
-from messaging import Messaging
-from kafka import KafkaProducer
+import awkward
+import math
 
 
-class KafkaMessaging(Messaging):
-    def __init__(self, brokers, max_message_size=15):
+class XAODTransformer:
+    def __init__(self, event_iterator):
+        self.event_iterator = event_iterator
 
-        print("Max Message size: " + str(max_message_size) + "Mb")
-        self.max_message_size = max_message_size
+    def arrow_table(self, chunk_size, event_limit=sys.maxint):
+        n_entries = self.event_iterator.get_entry_count()
+        print("Total entries: " + str(n_entries))
+        if event_limit:
+            n_entries = min(n_entries, event_limit)
+            print("Limiting to the first " + str(n_entries) + " events")
 
-        if not brokers:
-            self.brokers = ['servicex-kafka-0.slateci.net:19092',
-                            'servicex-kafka-1.slateci.net:19092',
-                            'servicex-kafka-2.slateci.net:19092']
-        else:
-            self.brokers = brokers
+        n_chunks = int(math.ceil(n_entries / chunk_size))
+        print("n_chunks ", n_chunks)
+        for i_chunk in xrange(n_chunks):
+            first_event = i_chunk * chunk_size
+            last_event = min((i_chunk + 1) * chunk_size, n_entries)
 
-        self.producer = None
-        print('Configured Kafka backend')
+            print("chunks ", first_event, last_event)
+            object_array = awkward.fromiter(
+                self.event_iterator.iterate(first_event, last_event)
+            )
 
-        try:
-            self.producer = KafkaProducer(bootstrap_servers=self.brokers,
-                                          api_version=(0, 10),
-                                          max_request_size=int(max_message_size * 1e6))
-            print("Kafka producer created successfully")
-        except Exception as ex:
-            print("Exception while getting Kafka producer", ex)
-            sys.exit(1)
+            attr_dict = {}
+            for attr_name in self.event_iterator.attr_name_list:
+                branch_name = attr_name.split('.')[0].strip(' ')
+                a_name = attr_name.split('.')[1]
 
-    def publish_message(self, topic_name, key, value_buffer):
-        try:
-            msg_bytes = value_buffer.to_pybytes()
-            self.producer.send(topic_name, key=str(key),
-                               value=msg_bytes)
-            self.producer.flush()
-            print("Message published to ", topic_name, " successfully ",
-                  len(msg_bytes))
-        except Exception as ex:
-            print("Exception in publishing message", ex)
-            raise
-        return True
+                attr_dict[branch_name + '_' + a_name.strip('()')] = \
+                    object_array[branch_name][a_name]
+
+            object_table = awkward.Table(**attr_dict)
+            return awkward.toarrow(object_table)

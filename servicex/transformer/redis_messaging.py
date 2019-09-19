@@ -66,7 +66,10 @@ class RedisMessaging:
             return False
 
         # add message
-        self.client.xadd(request_id, {'pa': key, 'data': codecs.encode(value_buffer, 'bz2')})
+        self.client.xadd(request_id, {
+            'pa': key,
+            'data': codecs.encode(value_buffer, 'bz2')
+        })
         return True
 
     def request_status_redis(self, topic_name):

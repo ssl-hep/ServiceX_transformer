@@ -2,5 +2,5 @@ secrets
 .idea/
 __pycache__/
 *.pyc
-
+.coverage
 

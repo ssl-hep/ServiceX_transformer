@@ -1,5 +1,9 @@
 # ServiceX_transformer Repo for input-output transformation code for ServiceX
 
+[![Build Status](https://travis-ci.org/ssl-hep/ServiceX_transformer.svg?branch=pytest)](https://travis-ci.org/ssl-hep/ServiceX_transformer)
+[![codecov](https://codecov.io/gh/ssl-hep/ServiceX_transformer/branch/master/graph/badge.svg)](https://codecov.io/gh/ssl-hep/ServiceX_transformer)
+
+
 Allows user to access an xAOD-formatted TTree in a ROOT file via a standalone
 ATLAS analysis release. This is based a Docker image found here:
     https://hub.docker.com/r/atlas/analysisbase
@@ -95,3 +99,29 @@ From here you can:
 ```bash
 %  bin/kafka-log-dirs.sh --describe --bootstrap-server servicex-kafka-0.slateci.net:19092 --topic-list servicex | grep '{' | jq '.brokers[].logDirs[].partitions[].size' | grep '^[^0]'
 ```
+
+## Running Tests
+Validation of the code logic is performed using 
+[pytest](https://docs.pytest.org/en/latest/) and 
+[pytest-mock](https://github.com/pytest-dev/pytest-mock). Unit test fixtures are
+in `test` directories inside each package. The tests depend on imports that 
+are found inside the atlas docker container, so they are usually run inside 
+a container. 
+
+Start up the container and run unit tests with:
+```bash
+ docker run sslhep/servicex-transformer:rabbitmq bash -c "source /home/atlas/.bashrc && pytest -s"
+```
+
+The tests are instrumented with code coverage reporting via 
+[codecov](https://codecov.io/gh/ssl-hep/ServiceX_transformer). The travis
+job has a the codecov upload token set as an environment variable which is
+passed into the docker container so the report can be uploaded upon successful
+conclusion of the tests.
+
+## Coding Standards
+To make it easier for multiple people to work on the codebase, we enforce PEP8
+standards, verified by flake8. The community has found that the 80 character
+limit is a bit awkward, so we have a local config setting the `max_line_length`
+to 99.
+

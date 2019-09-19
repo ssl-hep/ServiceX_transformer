@@ -37,7 +37,7 @@ ENV X509_USER_PROXY /etc/grid-security/x509up
 # RUN sudo su atlas
 
 # Create app directory
-WORKDIR /usr/src/app
+WORKDIR /home/atlas
 
 
 # Update atlas user's startup script to always initialize the Atlas release
@@ -46,5 +46,4 @@ COPY bashrc /home/atlas/.bash_profile
 COPY requirements.txt .
 RUN /bin/bash -c "source /home/atlas/release_setup.sh && \
     pip install --user -r requirements.txt"
-
 COPY . .

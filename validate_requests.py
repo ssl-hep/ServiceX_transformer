@@ -94,7 +94,7 @@ def validate_branches(file_name, branch_names):
                         print(attr + " is not an attribute of " + branch)
                         return(False, attr + " is not an attribute of " + branch)
                     break
-            except:
+            except Exception:
                 return(False, "No collection with name:" + branch)
 
     return(True, {
@@ -119,6 +119,7 @@ def create_kafka_topic(admin, topic):
             k_error = k_execpt.args[0]
             print(k_error.str())
             return(k_error.code() == 36)
+
 
 def post_status_update(endpoint, status_msg):
     requests.post(endpoint + "/status", data={
@@ -159,7 +160,6 @@ def callback(channel, method, properties, body):
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
-
 if __name__ == "__main__":
     args = parser.parse_args()
     rabbitmq = pika.BlockingConnection(
@@ -172,7 +172,6 @@ if __name__ == "__main__":
                            auto_ack=False,
                            on_message_callback=callback)
     _channel.start_consuming()
-
 
     # Convert comma separated broker string to a list
     kafka_brokers = list(map(lambda b: b.strip(), args.brokerlist.split(",")))
@@ -193,7 +192,9 @@ if __name__ == "__main__":
 
     while True:
         # gets request in Created
-        req_resp = requests.get('https://servicex.slateci.net/drequest/status/LookedUp', verify=False)
+        req_resp = requests.get(
+            'https://servicex.slateci.net/drequest/status/LookedUp',
+            verify=False)
         try:
             req = req_resp.json()
         except ValueError:
@@ -208,7 +209,9 @@ if __name__ == "__main__":
         branches = req['_source']['columns']
 
         # gets one file belonging to this request
-        path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+        path_res = requests.get('https://servicex.slateci.net/dpath/' +
+                                req_id + '/Created',
+                                verify=False)
         try:
             pat = path_res.json()
         except ValueError:
@@ -226,25 +229,37 @@ if __name__ == "__main__":
         if valid:
             # sets all the files to "Validated"
             while True:
-                path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+                path_res = requests.get('https://servicex.slateci.net/dpath/' +
+                                        req_id + '/Created',
+                                        verify=False)
                 pat = path_res.json()
                 if not pat:
                     break
-                path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Validated', verify=False)
+                path_res = requests.put('https://servicex.slateci.net/dpath/status/' +
+                                        pat['_id'] + '/Validated',
+                                        verify=False)
                 print('path: ' + pat['_id'] + ' validation: ' + str(path_res.status_code))
             # sets request to "Validated"
-            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Validated/' + info, verify=False)
+            requests.put('https://servicex.slateci.net/drequest/status/' +
+                         req_id + '/Validated/' + info,
+                         verify=False)
 
             create_kafka_topic(ADMIN, req_id)
 
         else:
             # fails all files
             while True:
-                path_res = requests.get('https://servicex.slateci.net/dpath/' + req_id + '/Created', verify=False)
+                path_res = requests.get('https://servicex.slateci.net/dpath/' +
+                                        req_id + '/Created',
+                                        verify=False)
                 pat = path_res.json()
                 if not pat:
                     break
-                path_res = requests.put('https://servicex.slateci.net/dpath/status/' + pat['_id'] + '/Failed', verify=False)
+                path_res = requests.put('https://servicex.slateci.net/dpath/status/' +
+                                        pat['_id'] + '/Failed',
+                                        verify=False)
                 print('path: ' + pat['_id'] + ' failing: ' + str(path_res.status_code))
             # sets request to "Failed"
-            requests.put('https://servicex.slateci.net/drequest/status/' + req_id + '/Failed/' + info, verify=False)
+            requests.put('https://servicex.slateci.net/drequest/status/' +
+                         req_id + '/Failed/' + info,
+                         verify=False)
