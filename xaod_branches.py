@@ -379,13 +379,14 @@ if __name__ == "__main__":
     # Convert comma separated attribute string to a list
     _attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
 
-    if args.kafka_messaging == args.redis_messaging:
+    MESSAGE_BROKER = os.environ.get('MESSAGE_BROKER')
+    if args.kafka_messaging == args.redis_messaging and not MESSAGE_BROKER:
         print("You must specify one and only one messaging backend")
         exit(-1)
 
-    if args.kafka_messaging:
+    if args.kafka_messaging or MESSAGE_BROKER == "kafka":
         messaging = KafkaMessaging(kafka_brokers, float(args.max_message_size))
-    elif args.redis_messaging:
+    elif args.redis_messaging or MESSAGE_BROKER == "redis":
         messaging = RedisMessaging(args.redis_host, args.redis_port)
 
     if args.chunks:

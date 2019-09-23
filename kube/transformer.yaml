@@ -54,6 +54,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: MESSAGE_BROKER
+          value: "kafka"
         volumeMounts:
         - name: x509-data
           mountPath: "/etc/grid-security/"
