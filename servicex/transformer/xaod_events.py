@@ -64,7 +64,6 @@ class XAODEvents:
 
         n_entries = self.tree.GetEntries()
         for j_entry in xrange(f_evt, l_evt):
-            print("j_entry is ", j_entry)
             self.tree.GetEntry(j_entry)
             if j_entry % 1000 == 0:
                 print("Processing run #" + str(self.tree.EventInfo.runNumber())
