@@ -52,10 +52,9 @@ See the argument reference for the exact paramters for each of these options
 
 ### Messaging Backend
 The transformer writes the generated awkward arrays to a messaging backend for
-streaming to analysis applications. You can choose between:
+delivery to analysis applications. You can choose between:
 * Kafka - for a fully cached, resource intensive topic as output
-* Redis - for a size constrained queue which will reduce output in response to 
-back pressure from the reading application
+* Object-Store - For saving modest result sets that can be downloaded
 
 These can be selected from command line options. There are numerous options for
 each backend.
@@ -70,15 +69,62 @@ each backend.
 | --chunks CHUNKS | Number of events to include in each message. If ommitted, it will compute a best guess based on heuristics and max message size | None |
 | --attrs ATTR_NAMES | List of attributes to extract | Electrons.pt(), Electrons.eta(), Electrons.phi(), Electrons.e()|
 | --limit LIMIT | Max number of events to process | |
-| --wait WAIT | Number of seconds to wait for consumer to restart | 600 seconds|
-| --kafka | Use Kafka Backend for messages | False |
+| --result-destination | Where to send the results: kafka or object-store | kafka
+| --result-format | Binary format for the results: arrow or parquet | arrow
 | --topic TOPIC | Kafka topic to publish arrays to | servicex |
 | --brokerlist BROKERLIST | List of Kafka broker to connect to | servicex-kafka-0.slateci.net:19092, servicex-kafka-1.slateci.net:19092, servicex-kafka-2.slateci.net:19092" |                      
-| --redis| Use Redis Backend for messages | False |
-| --redis-host REDIS_HOST | Host for redis messaging backend | redis.slateci.net |
-| --redis-port REDIS_PORT | Port for redis messaging backend | 6379 |
 
+## Development
+There are several command line options available for exercising the service
+in a development environment. Since the service relies on some specific Atlas
+tooling we usually execute inside the container. 
 
+To build a local image:
+```bash
+docker build -t docker build -t sslhep/servicex-transformer:rabbitmq .
+```
+
+For ease, we often will launch a bash shell with this repo's source code
+mounted as a volume. You can edit the source code using your desktop's tools
+and execute inside the container.
+
+To launch this container, cd to root of this repo.
+
+```bash
+docker run -it --mount type=bind,source=$(pwd),target=/code --mount type=bind,source=$(pwd)/../data,target=/data sslhep/servicex-transformer:rabbitmq bash
+```
+
+This assumes that you have a directory above this repo called `data` that has 
+some sample ROOT files.
+
+To run the transformer from the command line you can `cd /code` to move
+to the copy of the code served up from your host.
+
+```bash
+python xaod_branches.py --path /data/AOD.11182705._000001.pool.root.1 --result-destination kafka --request-id my-bucket --chunks 5000
+```
+
+If you want to run it from the command line and use the object storage:
+```bash
+export MINIO_ACCESS_KEY='miniouser'
+export MINIO_SECRET_KEY='leftfoot1'
+export MINIO_URL='host.docker.internal:9000'
+python xaod_branches.py --path /data/AOD.11182705._000001.pool.root.1 --result-destination object-store -result-format parquet --request-id my-bucket --chunks 5000
+```
+
+### To Debug RabbitMQ interactions
+It's possible to run the transformer from the command line and have it interact
+with RabbitMQ deployed into the local kubernetes cluster.
+
+1. Turn off the App's transformer manager
+- Run a local copy of the ServiceX_App on port 5000
+- In app.conf set `TRANSFORMER_MANAGER_ENABLED = False`
+- Submit a transform request
+- Inside the container run transformer against the rabbit mq topic
+```bash
+python xaod_branches.py --rabbit-uri amqp://user:leftfoot1@host.docker.internal:30672/%2F?heartbeat=9000 --result-destination kafka --request-id 52b40f91-103c-4c64-b732-a7ac96992682 --chunks 5000
+
+```
 ## Debuggging Kafka
 We have a debugging pod deployed to the cluster that has some handy tools.
 You can get a shell into this pod with the command:

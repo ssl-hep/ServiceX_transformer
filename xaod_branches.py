@@ -1,24 +1,24 @@
 #!/usr/bin/env python
 from __future__ import division
 
-# Set up ROOT, uproot, and RootCore:
-import datetime
 import json
-
-import math
 import os
 import sys
+
 # noinspection PyPackageRequirements
 import ROOT
 import argparse
-import pyarrow as pa
-import requests
-import time
-from servicex.transformer.kafka_messaging import KafkaMessaging
-from servicex.transformer.redis_messaging import RedisMessaging
-from servicex.servicex_adaptor import ServiceX
+# Set up ROOT, uproot, and RootCore:
+import datetime
+import math
 import pika
+import pyarrow as pa
+import pyarrow.parquet as pq
+import requests
 
+from servicex.servicex_adaptor import ServiceX
+from servicex.transformer.kafka_messaging import KafkaMessaging
+from servicex.transformer.object_store_manager import ObjectStoreManager
 from servicex.transformer.xaod_events import XAODEvents
 from servicex.transformer.xaod_transformer import XAODTransformer
 
@@ -40,9 +40,6 @@ avg_cell_size = 42
 # What is the largest message we want to send (in megabytes).
 # Note this must be less than the kafka broker setting if we are using kafka
 default_max_message_size = 14.5
-
-# Number of seconds to wait for consumer to wake up
-default_wait_for_consumer = 600
 
 messaging = None
 
@@ -77,24 +74,13 @@ parser.add_argument("--limit", dest='limit', action='store',
                     default=None,
                     help='Max number of events to process')
 
-parser.add_argument("--wait", dest='wait', action='store',
-                    default=os.environ.get('WAIT_FOR_CONSUMER',
-                                           default_wait_for_consumer),
-                    help="Number of seconds to wait for consumer to restart")
+parser.add_argument('--result-destination', dest='result_destination', action='store',
+                    default='kafka', help='kafka, object-store',
+                    choices=['kafka', 'object-store'])
 
-parser.add_argument('--kafka', dest='kafka_messaging', action='store_true',
-                    default=False, help='Use Kafka Backend for messages')
+parser.add_argument('--result-format', dest='result_format', action='store',
+                    default='arrow', help='arrow, parquet', choices=['arrow', 'parquet'])
 
-parser.add_argument('--redis', dest='redis_messaging', action='store_true',
-                    default=False, help='Use Redis Backend for messages')
-
-parser.add_argument("--redis-host", dest='redis_host', action='store',
-                    default='redis.slateci.net',
-                    help='Host for redis messaging backend')
-
-parser.add_argument("--redis-port", dest='redis_port', action='store',
-                    default='6379',
-                    help='Port for redis messaging backend')
 
 parser.add_argument("--dataset", dest='dataset', action='store',
                     default=None,
@@ -118,6 +104,21 @@ ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 def _compute_chunk_size(attr_list, max_message_size):
     print("Chunks comp", max_message_size * 1e6, len(attr_list), avg_cell_size)
     return int(max_message_size * 1e6 / len(attr_list) / avg_cell_size)
+
+
+def _open_scratch_file(file_format, pa_table):
+    if file_format == 'parquet':
+        return pq.ParquetWriter("/tmp/out", pa_table.schema)
+
+
+def _append_table_to_scratch(file_format, scratch_writer, pa_table):
+    if file_format == 'parquet':
+        scratch_writer.write_table(table=pa_table)
+
+
+def _close_scratch_file(file_format, scratch_writer):
+    if file_format == 'parquet':
+        scratch_writer.close()
 
 
 def make_event_table(tree, branches, f_evt, l_evt):
@@ -147,32 +148,6 @@ def make_event_table(tree, branches, f_evt, l_evt):
         # if j_entry == 6000: break
 
 
-def poll_for_root_files(servicex, messaging, chunk_size,
-                        wait_for_consumer, event_limit=None):
-    rpath_output = servicex.get_transform_requests()
-
-    if not rpath_output:
-        print("nothing to do...")
-        time.sleep(10)
-        return
-
-    _id = rpath_output['_id']
-    _file_path = rpath_output['_source']['file_path']
-    _request_id = rpath_output['_source']['req_id']
-    print("Received ID: " + _id + ", path: " + _file_path)
-
-    request_output = servicex.get_request_info(_request_id)
-
-    attr_name_list = request_output['_source']['columns']
-    print("Received request: " +
-          _request_id +
-          ", columns: " +
-          str(attr_name_list))
-    write_branches_to_arrow(messaging, _request_id, _file_path, _id,
-                            attr_name_list, chunk_size, wait_for_consumer,
-                            servicex, event_limit)
-
-
 def post_status_update(endpoint, status_msg):
     requests.post(endpoint+"/status", data={
         "timestamp": datetime.datetime.now().isoformat(),
@@ -189,19 +164,23 @@ def put_file_complete(endpoint, file_path, status, num_messages=None,
         "total-time": total_time
     }
     print("------< ", doc)
-    requests.put(endpoint+"/file-complete", json={
-        "file-path": file_path,
-        "status": status,
-        "num-messages": num_messages,
-        "total-time": total_time
-    })
+    if endpoint:
+        requests.put(endpoint+"/file-complete", json={
+            "file-path": file_path,
+            "status": status,
+            "num-messages": num_messages,
+            "total-time": total_time
+        })
 
 
-def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id,
-                            attr_name_list, chunk_size, wait_for_consumer,
-                            server_endpoint, event_limit=None):
+def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_name_list,
+                            chunk_size, server_endpoint, event_limit=None,
+                            object_store=None):
     sw = ROOT.TStopwatch()
     sw.Start()
+
+    scratch_writer = None
+
     event_iterator = XAODEvents(file_path, attr_name_list)
     transformer = XAODTransformer(event_iterator)
 
@@ -217,8 +196,14 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id,
     n_chunks = int(math.ceil(n_entries / chunk_size))
     batch_number = 0
     for i_chunk in xrange(n_chunks):
-        waited = 0
-        pa_table = transformer.arrow_table(chunk_size, event_limit)
+        pa_table = transformer\
+            .arrow_table(chunk_size, event_limit)
+
+        if object_store:
+            if not scratch_writer:
+                scratch_writer = _open_scratch_file(args.result_format, pa_table)
+            _append_table_to_scratch(args.result_format, scratch_writer, pa_table)
+
         batches = pa_table.to_batches(chunksize=chunk_size)
 
         # Leaving this for now; currently batches is a list of size 1,
@@ -226,40 +211,36 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id,
         # multiple batches in the future
         batch_number = i_chunk * len(batches)
         for batch in batches:
-            sink = pa.BufferOutputStream()
-            writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-            writer.write_batch(batch)
-            writer.close()
-            while True:
+            if messaging:
                 key = file_path + "-" + str(batch_number)
-                published = messaging.publish_message(
+
+                sink = pa.BufferOutputStream()
+                writer = pa.RecordBatchStreamWriter(sink, batch.schema)
+                writer.write_batch(batch)
+                writer.close()
+                messaging.publish_message(
                     topic_name,
                     key,
                     sink.getvalue())
 
-                if published:
-                    avg_cell_size = len(sink.getvalue().to_pybytes()) \
-                                    / len(attr_name_list) \
-                                    / batch.num_rows
-                    print("Batch number " + str(batch_number) + ", "
-                          + str(batch.num_rows) +
-                          " events published to " + topic_name,
-                          "Avg Cell Size = " + str(avg_cell_size) + " bytes")
-                    batch_number += 1
+                avg_cell_size = len(sink.getvalue().to_pybytes()) / len(
+                    attr_name_list) / batch.num_rows
+                print("Batch number " + str(batch_number) + ", "
+                      + str(batch.num_rows) +
+                      " events published to " + topic_name,
+                      "Avg Cell Size = " + str(avg_cell_size) + " bytes")
+                batch_number += 1
 
-                    if server_endpoint:
-                        post_status_update(server_endpoint, "Processed " +
-                                           str(batch.num_rows))
-                    waited = 0
-                    break
-                else:
-                    print("not published. Waiting 10 seconds before retry.")
-                    time.sleep(10)
-                    waited += 10
-                    if waited > wait_for_consumer:
-                        if server_endpoint:
-                            servicex.post_validated_status(servicex_id)
-                        sys.exit(0)
+                if server_endpoint:
+                    post_status_update(server_endpoint, "Processed " +
+                                       str(batch.num_rows))
+
+    if object_store:
+        _close_scratch_file(args.result_format, scratch_writer)
+        print("Writing parquet to ", args.request_id, " as ", file_path.replace('/', ':'))
+        object_store.upload_file(args.request_id, file_path.replace('/', ':'), "/tmp/out")
+        os.remove("/tmp/out")
+
     ROOT.xAOD.ClearTransientTrees()
 
     if server_endpoint:
@@ -272,16 +253,14 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id,
                       batch_number, sw.RealTime())
 
 
-def transform_dataset(dataset, messaging, topic_name, servicex_id,
-                      attr_list, chunk_size,
-                      wait_for_consumer, limit):
+def transform_dataset(dataset, messaging, topic_name, servicex_id, attr_list, chunk_size,
+                      limit):
     with open(dataset, 'r') as f:
         datasets = json.load(f)
         for rec in datasets:
             print "Transforming ", rec[u'file_path'], rec[u'file_events']
-            write_branches_to_arrow(messaging, topic_name, rec[u'file_path'],
-                                    servicex_id, attr_list, chunk_size,
-                                    wait_for_consumer, None, limit)
+            write_branches_to_arrow(messaging, topic_name, rec[u'file_path'], servicex_id,
+                                    attr_list, chunk_size, None, limit)
 
 
 # noinspection PyUnusedLocal
@@ -296,14 +275,10 @@ def callback(channel, method, properties, body):
 
     print(_file_path)
 
-    write_branches_to_arrow(messaging=messaging,
-                            topic_name=_request_id,
-                            file_path=_file_path,
-                            servicex_id=_id,
-                            attr_name_list=columns,
-                            chunk_size=chunk_size,
-                            wait_for_consumer=wait_for_consumer,
-                            server_endpoint=_server_endpoint)
+    write_branches_to_arrow(messaging=messaging, topic_name=_request_id,
+                            file_path=_file_path, servicex_id=_id, attr_name_list=columns,
+                            chunk_size=chunk_size, server_endpoint=_server_endpoint,
+                            object_store=object_store)
 
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -323,14 +298,16 @@ if __name__ == "__main__":
     # Convert comma separated attribute string to a list
     _attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
 
-    if args.kafka_messaging == args.redis_messaging:
-        print("You must specify one and only one messaging backend")
-        exit(-1)
-
-    if args.kafka_messaging:
+    print("\n\n---->", args.result_destination)
+    if args.result_destination == 'kafka':
         messaging = KafkaMessaging(kafka_brokers, float(args.max_message_size))
-    elif args.redis_messaging:
-        messaging = RedisMessaging(args.redis_host, args.redis_port)
+        object_store = None
+    elif args.result_destination == 'object-store':
+        messaging = None
+        object_store = ObjectStoreManager(os.environ['MINIO_URL'],
+                                          os.environ['MINIO_ACCESS_KEY'],
+                                          os.environ['MINIO_SECRET_KEY'])
+        print("Object store initialized to ", object_store.minio_client)
 
     if args.chunks:
         chunk_size = int(args.chunks)
@@ -338,9 +315,7 @@ if __name__ == "__main__":
         chunk_size = _compute_chunk_size(_attr_list,
                                          float(args.max_message_size))
 
-    wait_for_consumer = int(args.wait)
-
-    if args.request_id:
+    if args.request_id and not args.path:
         rabbitmq = pika.BlockingConnection(
             pika.URLParameters(args.rabbit_uri)
         )
@@ -365,15 +340,9 @@ if __name__ == "__main__":
 
     if args.path:
         print("Transforming a single path: ", args.path)
-        write_branches_to_arrow(messaging, args.topic, args.path, "cli",
-                                _attr_list, chunk_size, wait_for_consumer,
-                                None, limit)
+        write_branches_to_arrow(messaging, args.topic, args.path, "cli", _attr_list,
+                                chunk_size, None, limit, object_store=object_store)
     elif args.dataset:
         print("Transforming files from saved dataset ", args.dataset)
-        transform_dataset(args.dataset, messaging, args.topic, "cli",
-                          _attr_list, chunk_size, wait_for_consumer, limit)
-    else:
-        print("Polling for files from ", args.servicex_endpoint)
-        while True:
-            poll_for_root_files(servicex, messaging, chunk_size,
-                                wait_for_consumer, limit)
+        transform_dataset(args.dataset, messaging, args.topic, "cli", _attr_list,
+                          chunk_size, limit)

@@ -3,9 +3,9 @@ requests
 pyarrow
 kafka
 confluent_kafka
-redis
 pympler
 pika
+minio
 pytest
 pytest-mock
 flake8==3.5
