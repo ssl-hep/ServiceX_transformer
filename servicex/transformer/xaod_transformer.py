@@ -35,23 +35,15 @@ class XAODTransformer:
         self.event_iterator = event_iterator
 
     def arrow_table(self, chunk_size, event_limit=sys.maxint):
-        n_entries = self.event_iterator.get_entry_count()
-        print("Total entries: " + str(n_entries))
-        if event_limit:
-            n_entries = min(n_entries, event_limit)
-            print("Limiting to the first " + str(n_entries) + " events")
+        event_number = 0
+        print(event_number, " event")
 
-        n_chunks = int(math.ceil(n_entries / chunk_size))
-        print("n_chunks ", n_chunks)
-        for i_chunk in xrange(n_chunks):
-            first_event = i_chunk * chunk_size
-            last_event = min((i_chunk + 1) * chunk_size, n_entries)
+        def group(iterator, n):
+            while True:
+                yield [iterator.next() for i in range(n)]
 
-            print("chunks ", first_event, last_event)
-            object_array = awkward.fromiter(
-                self.event_iterator.iterate(first_event, last_event)
-            )
-
+        for events in group(self.event_iterator.iterate(event_limit), chunk_size):
+            object_array = awkward.fromiter(events)
             attr_dict = {}
             for attr_name in self.event_iterator.attr_name_list:
                 branch_name = attr_name.split('.')[0].strip(' ')
@@ -61,4 +53,4 @@ class XAODTransformer:
                     object_array[branch_name][a_name]
 
             object_table = awkward.Table(**attr_dict)
-            return awkward.toarrow(object_table)
+            yield awkward.toarrow(object_table)

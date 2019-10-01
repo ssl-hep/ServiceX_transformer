@@ -109,7 +109,7 @@ If you want to run it from the command line and use the object storage:
 export MINIO_ACCESS_KEY='miniouser'
 export MINIO_SECRET_KEY='leftfoot1'
 export MINIO_URL='host.docker.internal:9000'
-python xaod_branches.py --path /data/AOD.11182705._000001.pool.root.1 --result-destination object-store -result-format parquet --request-id my-bucket --chunks 5000
+python xaod_branches.py --path /data/AOD.11182705._000001.pool.root.1 --result-destination object-store --result-format parquet --request-id my-bucket --chunks 5000
 ```
 
 ### To Debug RabbitMQ interactions

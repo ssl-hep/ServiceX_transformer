@@ -193,12 +193,8 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
         n_entries = min(n_entries, event_limit)
         print("Limiting to the first "+str(n_entries)+" events")
 
-    n_chunks = int(math.ceil(n_entries / chunk_size))
     batch_number = 0
-    for i_chunk in xrange(n_chunks):
-        pa_table = transformer\
-            .arrow_table(chunk_size, event_limit)
-
+    for pa_table in transformer.arrow_table(chunk_size, event_limit):
         if object_store:
             if not scratch_writer:
                 scratch_writer = _open_scratch_file(args.result_format, pa_table)
@@ -209,7 +205,6 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
         # Leaving this for now; currently batches is a list of size 1,
         # but it gives us the flexibility to define an iterator over
         # multiple batches in the future
-        batch_number = i_chunk * len(batches)
         for batch in batches:
             if messaging:
                 key = file_path + "-" + str(batch_number)
