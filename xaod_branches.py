@@ -183,9 +183,6 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
     event_iterator = XAODEvents(file_path, attr_name_list)
     transformer = XAODTransformer(event_iterator)
 
-    file_in = ROOT.TFile.Open(file_path)
-    tree_in = ROOT.xAOD.MakeTransientTree(file_in)
-
     batch_number = 0
     for pa_table in transformer.arrow_table(chunk_size, event_limit):
         if object_store:
