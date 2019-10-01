@@ -64,7 +64,7 @@ class TestXAODTransformer:
         iterator.attr_name_list = attr_names
         iterator.get_entry_count = mock.Mock(return_value=1000)
         transformer = XAODTransformer(iterator)
-        table = transformer.arrow_table(10, 100)
+        table = transformer.arrow_table(2, 100).next()
 
         assert table.column_names == ['Electrons_pt',
                                       'Muons_e',
@@ -82,4 +82,4 @@ class TestXAODTransformer:
             ('Electrons_eta', [[5.0, 10.0], [15.0, 20.0]])
         ])
 
-        iterator.iterate.assert_called_with(0, 10)
+        iterator.iterate.assert_called_with(100)

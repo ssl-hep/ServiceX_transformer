@@ -10,7 +10,6 @@ import ROOT
 import argparse
 # Set up ROOT, uproot, and RootCore:
 import datetime
-import math
 import pika
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -187,12 +186,6 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
     file_in = ROOT.TFile.Open(file_path)
     tree_in = ROOT.xAOD.MakeTransientTree(file_in)
 
-    n_entries = tree_in.GetEntries()
-    print("Total entries: " + str(n_entries))
-    if event_limit:
-        n_entries = min(n_entries, event_limit)
-        print("Limiting to the first "+str(n_entries)+" events")
-
     batch_number = 0
     for pa_table in transformer.arrow_table(chunk_size, event_limit):
         if object_store:
@@ -202,9 +195,6 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
 
         batches = pa_table.to_batches(chunksize=chunk_size)
 
-        # Leaving this for now; currently batches is a list of size 1,
-        # but it gives us the flexibility to define an iterator over
-        # multiple batches in the future
         for batch in batches:
             if messaging:
                 key = file_path + "-" + str(batch_number)

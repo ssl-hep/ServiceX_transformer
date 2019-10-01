@@ -27,7 +27,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
 import awkward
-import math
 
 
 class XAODTransformer:
@@ -35,8 +34,6 @@ class XAODTransformer:
         self.event_iterator = event_iterator
 
     def arrow_table(self, chunk_size, event_limit=sys.maxint):
-        event_number = 0
-        print(event_number, " event")
 
         def group(iterator, n):
             while True:

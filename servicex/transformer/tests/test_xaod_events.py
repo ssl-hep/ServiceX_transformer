@@ -64,7 +64,7 @@ class TestXAODEvents:
 
         assert event_iterator.get_entry_count() == 2
 
-    def test_event_iter(self, mocker):
+    def test_event_iter_no_limit(self, mocker):
         import ROOT
         import mock
         import pytest
@@ -105,13 +105,11 @@ class TestXAODEvents:
             ]
         })
 
-        array_gen = event_iterator.iterate(
-            f_evt=999,
-            l_evt=1001)
+        array_gen = event_iterator.iterate()
 
         array = array_gen.next()
         print(array)
-        mock_tree.GetEntry.assert_called_with(999)
+        mock_tree.GetEntry.assert_called_with(0)
         mock_tree.Muons.at.assert_called_with(2)
         mock_tree.Electrons.at.assert_called_with(1)
         open_mock.assert_called_with("foo/bar")
@@ -124,7 +122,7 @@ class TestXAODEvents:
 
         array2 = array_gen.next()
         print(array2)
-        mock_tree.GetEntry.assert_called_with(1000)
+        mock_tree.GetEntry.assert_called_with(1)
         mock_tree.Muons.at.assert_called_with(1)
         mock_tree.Electrons.at.assert_called_with(2)
         assert len(array2['Muons']) == 2
