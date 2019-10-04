@@ -255,14 +255,20 @@ def callback(channel, method, properties, body):
     columns = list(map(lambda b: b.strip(),
                        transform_request['columns'].split(",")))
 
+
     print(_file_path)
-
-    write_branches_to_arrow(messaging=messaging, topic_name=_request_id,
-                            file_path=_file_path, servicex_id=_id, attr_name_list=columns,
-                            chunk_size=chunk_size, server_endpoint=_server_endpoint,
-                            object_store=object_store)
-
-    channel.basic_ack(delivery_tag=method.delivery_tag)
+    try:
+        write_branches_to_arrow(messaging=messaging, topic_name=_request_id,
+                                file_path=_file_path, servicex_id=_id, attr_name_list=columns,
+                                chunk_size=chunk_size, server_endpoint=_server_endpoint,
+                                object_store=object_store)
+    except Exception as error:
+        transform_request['error'] = str(error)
+        channel.basic_publish(exchange='transformation_failures',
+                              routing_key=_request_id + '_errors',
+                              body=json.dumps(transform_request))
+    finally:
+        channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
 if __name__ == "__main__":
