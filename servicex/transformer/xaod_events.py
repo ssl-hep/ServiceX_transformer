@@ -59,11 +59,15 @@ class XAODEvents:
     def get_entry_count(self):
         return self.tree.GetEntries()
 
-    def iterate(self, f_evt, l_evt):
+    def iterate(self, event_limit=None):
         self._select_branches()
 
         n_entries = self.tree.GetEntries()
-        for j_entry in xrange(f_evt, l_evt):
+        if event_limit:
+            n_entries = min(n_entries, event_limit)
+            print("Limiting to the first " + str(n_entries) + " events")
+
+        for j_entry in range(n_entries):
             self.tree.GetEntry(j_entry)
             if j_entry % 1000 == 0:
                 print("Processing run #" + str(self.tree.EventInfo.runNumber())

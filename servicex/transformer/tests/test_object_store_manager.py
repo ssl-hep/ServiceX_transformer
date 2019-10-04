@@ -25,29 +25,24 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import sys
-import awkward
+from servicex.transformer.object_store_manager import ObjectStoreManager
 
 
-class XAODTransformer:
-    def __init__(self, event_iterator):
-        self.event_iterator = event_iterator
+class TestObjectStoreManager:
+    def test_init(self, mocker):
+        mock_minio = mocker.patch('minio.Minio')
+        ObjectStoreManager('localhost:9999', 'foo', 'bar')
+        called_config = mock_minio.call_args[1]
+        assert called_config['endpoint'] == 'localhost:9999'
+        assert called_config['access_key'] == 'foo'
+        assert called_config['secret_key'] == 'bar'
+        assert not called_config['secure']
 
-    def arrow_table(self, chunk_size, event_limit=sys.maxint):
-
-        def group(iterator, n):
-            while True:
-                yield [iterator.next() for i in range(n)]
-
-        for events in group(self.event_iterator.iterate(event_limit), chunk_size):
-            object_array = awkward.fromiter(events)
-            attr_dict = {}
-            for attr_name in self.event_iterator.attr_name_list:
-                branch_name = attr_name.split('.')[0].strip(' ')
-                a_name = attr_name.split('.')[1]
-
-                attr_dict[branch_name + '_' + a_name.strip('()')] = \
-                    object_array[branch_name][a_name]
-
-            object_table = awkward.Table(**attr_dict)
-            yield awkward.toarrow(object_table)
+    def test_upload_file(self, mocker):
+        import minio
+        mock_minio = mocker.MagicMock(minio.api.Minio)
+        mock_minio.fput_object = mocker.Mock()
+        mocker.patch('minio.Minio', return_value=mock_minio)
+        result = ObjectStoreManager('localhost:9999', 'foo', 'bar')
+        result.upload_file("my-bucket", "foo.txt", "/tmp/foo.txt")
+        mock_minio.fput_object.assert_called()
