@@ -255,7 +255,6 @@ def callback(channel, method, properties, body):
     columns = list(map(lambda b: b.strip(),
                        transform_request['columns'].split(",")))
 
-
     print(_file_path)
     try:
         write_branches_to_arrow(messaging=messaging, topic_name=_request_id,
