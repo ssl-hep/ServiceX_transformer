@@ -172,6 +172,23 @@ def put_file_complete(endpoint, file_path, status, num_messages=None,
         })
 
 
+def put_file_failed(endpoint, file_path, status, num_messages=None, total_time=None):
+    doc = {
+        "file-path": file_path,
+        "status": status,
+        "num-messages": num_messages,
+        "total-time": total_time
+    }
+    print("------< ", doc)
+    if endpoint:
+        requests.put(endpoint+"/file-failed", json={
+            "file-path": file_path,
+            "status": status,
+            "num-messages": num_messages,
+            "total-time": total_time
+        })
+
+
 def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_name_list,
                             chunk_size, server_endpoint, event_limit=None,
                             object_store=None):
@@ -213,9 +230,9 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
                       "Avg Cell Size = " + str(avg_cell_size) + " bytes")
                 batch_number += 1
 
-                if server_endpoint:
-                    post_status_update(server_endpoint, "Processed " +
-                                       str(batch.num_rows))
+                # if server_endpoint:
+                #     post_status_update(server_endpoint, "Processed " +
+                #                        str(batch.num_rows))
 
     if object_store:
         _close_scratch_file(args.result_format, scratch_writer)
@@ -266,6 +283,7 @@ def callback(channel, method, properties, body):
         channel.basic_publish(exchange='transformation_failures',
                               routing_key=_request_id + '_errors',
                               body=json.dumps(transform_request))
+        put_file_failed(_server_endpoint, _file_path, "failure", 0, 0.0)
     finally:
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
