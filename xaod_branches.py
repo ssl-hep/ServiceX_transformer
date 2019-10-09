@@ -213,9 +213,9 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
                       "Avg Cell Size = " + str(avg_cell_size) + " bytes")
                 batch_number += 1
 
-                if server_endpoint:
-                    post_status_update(server_endpoint, "Processed " +
-                                       str(batch.num_rows))
+                # if server_endpoint:
+                #     post_status_update(server_endpoint, "Processed " +
+                #                        str(batch.num_rows))
 
     if object_store:
         _close_scratch_file(args.result_format, scratch_writer)
@@ -256,13 +256,19 @@ def callback(channel, method, properties, body):
                        transform_request['columns'].split(",")))
 
     print(_file_path)
-
-    write_branches_to_arrow(messaging=messaging, topic_name=_request_id,
-                            file_path=_file_path, servicex_id=_id, attr_name_list=columns,
-                            chunk_size=chunk_size, server_endpoint=_server_endpoint,
-                            object_store=object_store)
-
-    channel.basic_ack(delivery_tag=method.delivery_tag)
+    try:
+        write_branches_to_arrow(messaging=messaging, topic_name=_request_id,
+                                file_path=_file_path, servicex_id=_id, attr_name_list=columns,
+                                chunk_size=chunk_size, server_endpoint=_server_endpoint,
+                                object_store=object_store)
+    except Exception as error:
+        transform_request['error'] = str(error)
+        channel.basic_publish(exchange='transformation_failures',
+                              routing_key=_request_id + '_errors',
+                              body=json.dumps(transform_request))
+        put_file_complete(_server_endpoint, _file_path, "failure", 0, 0.0)
+    finally:
+        channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
 if __name__ == "__main__":
