@@ -1,4 +1,7 @@
-awkward==0.10.2
+uproot
+awkward>=0.12.0
+xxhash
+lz4
 requests
 pyarrow
 kafka
