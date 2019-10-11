@@ -1,33 +1,29 @@
 #!/usr/bin/env python
 from __future__ import division
 
+import datetime
 import json
 import os
 import sys
 
-# noinspection PyPackageRequirements
-import ROOT
 import argparse
-# Set up ROOT, uproot, and RootCore:
-import datetime
+
+import time
 import pika
 import pyarrow as pa
 import pyarrow.parquet as pq
 import requests
 
 from servicex.transformer.kafka_messaging import KafkaMessaging
+from servicex.transformer.nanoaod_transformer import NanoAODTransformer
 from servicex.transformer.object_store_manager import ObjectStoreManager
-from servicex.transformer.xaod_events import XAODEvents
-from servicex.transformer.xaod_transformer import XAODTransformer
+from servicex.transformer.nanoaod_events import NanoAODEvents
 
 default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
                      "servicex-kafka-1.slateci.net:19092," \
                      "servicex-kafka-2.slateci.net:19092"
 
-default_attr_names = "Electrons.pt(), " \
-                     "Electrons.eta(), " \
-                     "Electrons.phi(), " \
-                     "Electrons.e()"
+default_attr_names = "Events.Electron_pt,Events.Electron_eta,Muon_phi"
 
 
 # How many bytes does an average awkward array cell take up. This is just
@@ -41,7 +37,7 @@ default_max_message_size = 14.5
 messaging = None
 
 parser = argparse.ArgumentParser(
-    description='Transform xAOD files into flat n-tuples.')
+    description='Transform Flat N-tuples into slimmed flat n-tuples.')
 
 parser.add_argument("--brokerlist", dest='brokerlist', action='store',
                     default=default_brokerlist,
@@ -54,6 +50,10 @@ parser.add_argument("--topic", dest='topic', action='store',
 parser.add_argument("--chunks", dest='chunks', action='store',
                     default=None,
                     help='Arrow Buffer Chunksize')
+
+parser.add_argument("--tree", dest='tree', action='store',
+                    default="Events",
+                    help='Tree from which columns will be inspected')
 
 parser.add_argument("--attrs", dest='attr_names', action='store',
                     default=default_attr_names,
@@ -88,8 +88,6 @@ parser.add_argument('--rabbit-uri', dest="rabbit_uri", action='store',
 
 parser.add_argument('--request-id', dest='request_id', action='store',
                     default=None, help='Request ID to read from queue')
-
-ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
 
 
 # Use a heuristic to guess at an optimum message chunk to fill the
@@ -140,16 +138,15 @@ def put_file_complete(endpoint, file_path, file_id, status,
         requests.put(endpoint+"/file-complete", json=doc)
 
 
-def write_branches_to_arrow(messaging, topic_name, file_path, file_id, attr_name_list,
-                            chunk_size, server_endpoint, event_limit=None,
+def write_branches_to_arrow(messaging, topic_name, file_path, file_id, tree_name,
+                            attr_name_list, chunk_size, server_endpoint, event_limit=None,
                             object_store=None):
-    sw = ROOT.TStopwatch()
-    sw.Start()
+    tick = time.time()
 
     scratch_writer = None
 
-    event_iterator = XAODEvents(file_path, attr_name_list)
-    transformer = XAODTransformer(event_iterator)
+    event_iterator = NanoAODEvents(file_path, tree_name, attr_name_list, chunk_size)
+    transformer = NanoAODTransformer(event_iterator)
 
     batch_number = 0
     total_events = 0
@@ -192,18 +189,13 @@ def write_branches_to_arrow(messaging, topic_name, file_path, file_id, attr_name
         object_store.upload_file(args.request_id, file_path.replace('/', ':'), "/tmp/out")
         os.remove("/tmp/out")
 
-    ROOT.xAOD.ClearTransientTrees()
-    print("===> Total Events ", total_events)
-    print("===> Total Bytes ", total_bytes)
-
     if server_endpoint:
         post_status_update(server_endpoint, "File " + file_path + " complete")
 
-    sw.Stop()
-    print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
-    print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
+    tock = time.time()
+    print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")
     put_file_complete(server_endpoint, file_path, file_id, "success",
-                      num_messages=batch_number, total_time=sw.RealTime(),
+                      num_messages=batch_number, total_time=round(tock - tick / 60.0, 2),
                       total_events=total_events, total_bytes=total_bytes)
 
 
@@ -212,7 +204,7 @@ def transform_dataset(dataset, messaging, topic_name, servicex_id, attr_list, ch
     with open(dataset, 'r') as f:
         datasets = json.load(f)
         for rec in datasets:
-            print "Transforming ", rec[u'file_path'], rec[u'file_events']
+            print("Transforming ", rec[u'file_path'], rec[u'file_events'])
             write_branches_to_arrow(messaging, topic_name, rec[u'file_path'], servicex_id,
                                     attr_list, chunk_size, None, limit)
 
@@ -221,6 +213,7 @@ def transform_dataset(dataset, messaging, topic_name, servicex_id, attr_list, ch
 def callback(channel, method, properties, body):
     transform_request = json.loads(body)
     _request_id = transform_request['request-id']
+    _tree_name = transform_request['tree-name']
     _file_path = transform_request['file-path']
     _file_id = transform_request['file-id']
     _server_endpoint = transform_request['service-endpoint']
@@ -231,7 +224,7 @@ def callback(channel, method, properties, body):
     try:
         write_branches_to_arrow(messaging=messaging, topic_name=_request_id,
                                 file_path=_file_path, file_id=_file_id,
-                                attr_name_list=columns,
+                                attr_name_list=columns, tree_name=_tree_name,
                                 chunk_size=chunk_size, server_endpoint=_server_endpoint,
                                 object_store=object_store)
     except Exception as error:
@@ -298,10 +291,11 @@ if __name__ == "__main__":
     limit = int(args.limit) if args.limit else None
 
     if args.path:
-        print("Transforming a single path: ", args.path)
-        write_branches_to_arrow(messaging, args.topic, args.path, "cli", _attr_list,
-                                chunk_size, None, limit, object_store=object_store)
+        print("Transforming a single path: " + str(args.path))
+        write_branches_to_arrow(messaging, args.topic, args.path, "cli", args.tree,
+                                _attr_list, chunk_size, None, limit,
+                                object_store=object_store)
     elif args.dataset:
         print("Transforming files from saved dataset ", args.dataset)
-        transform_dataset(args.dataset, messaging, args.topic, "cli", _attr_list,
-                          chunk_size, limit)
+        transform_dataset(args.dataset, messaging, args.topic, "cli", args.tree,
+                          _attr_list, chunk_size, limit)

@@ -91,7 +91,11 @@ and execute inside the container.
 To launch this container, cd to root of this repo.
 
 ```bash
-docker run -it --mount type=bind,source=$(pwd),target=/code --mount type=bind,source=$(pwd)/../data,target=/data sslhep/servicex-transformer:rabbitmq bash
+docker run -it \
+    --mount type=bind,source=$(pwd),target=/code \
+    --mount type=bind,source=$(pwd)/../data,target=/data \
+    --mount type=volume,source=x509,target=/etc/grid-security-ro \
+    sslhep/servicex-transformer:latest bash
 ```
 
 This assumes that you have a directory above this repo called `data` that has 
