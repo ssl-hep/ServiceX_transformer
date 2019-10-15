@@ -15,7 +15,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import requests
 
-from servicex.servicex_adaptor import ServiceX
 from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.object_store_manager import ObjectStoreManager
 from servicex.transformer.xaod_events import XAODEvents
@@ -30,7 +29,6 @@ default_attr_names = "Electrons.pt(), " \
                      "Electrons.phi(), " \
                      "Electrons.e()"
 
-default_servicex_endpoint = 'https://servicex.slateci.net'
 
 # How many bytes does an average awkward array cell take up. This is just
 # a rule of thumb to calculate chunksize
@@ -60,10 +58,6 @@ parser.add_argument("--chunks", dest='chunks', action='store',
 parser.add_argument("--attrs", dest='attr_names', action='store',
                     default=default_attr_names,
                     help='List of attributes to extract')
-
-parser.add_argument("--servicex", dest='servicex_endpoint', action='store',
-                    default=default_servicex_endpoint,
-                    help='Endpoint for servicex')
 
 parser.add_argument("--path", dest='path', action='store',
                     default=None,
@@ -120,33 +114,6 @@ def _close_scratch_file(file_format, scratch_writer):
         scratch_writer.close()
 
 
-def make_event_table(tree, branches, f_evt, l_evt):
-    n_entries = tree.GetEntries()
-    for j_entry in xrange(f_evt, l_evt):
-        tree.GetEntry(j_entry)
-        if j_entry % 1000 == 0:
-            print("Processing run #" + str(tree.EventInfo.runNumber())
-                  + ", event #" + str(tree.EventInfo.eventNumber())
-                  + " (" + str(round(100.0 * j_entry / n_entries, 2)) + "%)")
-
-        particles = {}
-        full_event = {}
-        for branch_name in branches:
-            full_event[branch_name] = []
-            particles[branch_name] = getattr(tree, branch_name)
-            for i in xrange(particles[branch_name].size()):
-                particle = particles[branch_name].at(i)
-                single_particle_attr = {}
-                for a_name in branches[branch_name]:
-                    single_particle_attr[a_name] = \
-                        getattr(particle, a_name.strip('()'))()
-                full_event[branch_name].append(single_particle_attr)
-
-        yield full_event
-
-        # if j_entry == 6000: break
-
-
 def post_status_update(endpoint, status_msg):
     requests.post(endpoint+"/status", data={
         "timestamp": datetime.datetime.now().isoformat(),
@@ -154,25 +121,26 @@ def post_status_update(endpoint, status_msg):
     })
 
 
-def put_file_complete(endpoint, file_path, status, num_messages=None,
-                      total_time=None):
+def put_file_complete(endpoint, file_path, file_id, status,
+                      num_messages=None, total_time=None, total_events=None,
+                      total_bytes=None):
+    avg_rate = 0 if not total_time else total_events/total_time
     doc = {
         "file-path": file_path,
+        "file-id": file_id,
         "status": status,
         "num-messages": num_messages,
-        "total-time": total_time
+        "total-time": total_time,
+        "total-events": total_events,
+        "total-bytes": total_bytes,
+        "avg-rate": avg_rate
     }
     print("------< ", doc)
     if endpoint:
-        requests.put(endpoint+"/file-complete", json={
-            "file-path": file_path,
-            "status": status,
-            "num-messages": num_messages,
-            "total-time": total_time
-        })
+        requests.put(endpoint+"/file-complete", json=doc)
 
 
-def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_name_list,
+def write_branches_to_arrow(messaging, topic_name, file_path, file_id, attr_name_list,
                             chunk_size, server_endpoint, event_limit=None,
                             object_store=None):
     sw = ROOT.TStopwatch()
@@ -184,12 +152,15 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
     transformer = XAODTransformer(event_iterator)
 
     batch_number = 0
+    total_events = 0
+    total_bytes = 0
     for pa_table in transformer.arrow_table(chunk_size, event_limit):
         if object_store:
             if not scratch_writer:
                 scratch_writer = _open_scratch_file(args.result_format, pa_table)
             _append_table_to_scratch(args.result_format, scratch_writer, pa_table)
 
+        total_events = total_events + pa_table.num_rows
         batches = pa_table.to_batches(chunksize=chunk_size)
 
         for batch in batches:
@@ -205,6 +176,8 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
                     key,
                     sink.getvalue())
 
+                total_bytes = total_bytes + len(sink.getvalue().to_pybytes())
+
                 avg_cell_size = len(sink.getvalue().to_pybytes()) / len(
                     attr_name_list) / batch.num_rows
                 print("Batch number " + str(batch_number) + ", "
@@ -213,10 +186,6 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
                       "Avg Cell Size = " + str(avg_cell_size) + " bytes")
                 batch_number += 1
 
-                # if server_endpoint:
-                #     post_status_update(server_endpoint, "Processed " +
-                #                        str(batch.num_rows))
-
     if object_store:
         _close_scratch_file(args.result_format, scratch_writer)
         print("Writing parquet to ", args.request_id, " as ", file_path.replace('/', ':'))
@@ -224,6 +193,8 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
         os.remove("/tmp/out")
 
     ROOT.xAOD.ClearTransientTrees()
+    print("===> Total Events ", total_events)
+    print("===> Total Bytes ", total_bytes)
 
     if server_endpoint:
         post_status_update(server_endpoint, "File " + file_path + " complete")
@@ -231,8 +202,9 @@ def write_branches_to_arrow(messaging, topic_name, file_path, servicex_id, attr_
     sw.Stop()
     print("Real time: " + str(round(sw.RealTime() / 60.0, 2)) + " minutes")
     print("CPU time:  " + str(round(sw.CpuTime() / 60.0, 2)) + " minutes")
-    put_file_complete(server_endpoint, file_path, "success",
-                      batch_number, sw.RealTime())
+    put_file_complete(server_endpoint, file_path, file_id, "success",
+                      num_messages=batch_number, total_time=sw.RealTime(),
+                      total_events=total_events, total_bytes=total_bytes)
 
 
 def transform_dataset(dataset, messaging, topic_name, servicex_id, attr_list, chunk_size,
@@ -250,15 +222,16 @@ def callback(channel, method, properties, body):
     transform_request = json.loads(body)
     _request_id = transform_request['request-id']
     _file_path = transform_request['file-path']
+    _file_id = transform_request['file-id']
     _server_endpoint = transform_request['service-endpoint']
-    _id = 1
     columns = list(map(lambda b: b.strip(),
                        transform_request['columns'].split(",")))
 
     print(_file_path)
     try:
         write_branches_to_arrow(messaging=messaging, topic_name=_request_id,
-                                file_path=_file_path, servicex_id=_id, attr_name_list=columns,
+                                file_path=_file_path, file_id=_file_id,
+                                attr_name_list=columns,
                                 chunk_size=chunk_size, server_endpoint=_server_endpoint,
                                 object_store=object_store)
     except Exception as error:
@@ -286,7 +259,6 @@ if __name__ == "__main__":
     # Convert comma separated attribute string to a list
     _attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
 
-    print("\n\n---->", args.result_destination)
     if args.result_destination == 'kafka':
         messaging = KafkaMessaging(kafka_brokers, float(args.max_message_size))
         object_store = None
@@ -321,8 +293,6 @@ if __name__ == "__main__":
     print("Atlas xAOD Transformer")
     print(_attr_list)
     print("Chunk size ", chunk_size)
-
-    servicex = ServiceX(args.servicex_endpoint)
 
     limit = int(args.limit) if args.limit else None
 
