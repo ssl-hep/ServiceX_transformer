@@ -36,8 +36,22 @@ class XAODTransformer:
     def arrow_table(self, chunk_size, event_limit=sys.maxint):
 
         def group(iterator, n):
-            while True:
-                yield [iterator.next() for i in range(n)]
+            """
+            Batch together chunks of events into a single yield
+            :param iterator: Iterator from which events are drown
+            :param n: Number of events to include in each yield
+            :return: Yields a list of n or fewer events
+            """
+            done = False
+            while not done:
+                results = []
+                try:
+                    for i in range(n):
+                        results.append(iterator.next())
+                    yield results
+                except StopIteration:
+                    done = True
+                    yield results
 
         for events in group(self.event_iterator.iterate(event_limit), chunk_size):
             object_array = awkward.fromiter(events)
