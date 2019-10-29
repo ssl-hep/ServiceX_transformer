@@ -239,7 +239,8 @@ def callback(channel, method, properties, body):
         channel.basic_publish(exchange='transformation_failures',
                               routing_key=_request_id + '_errors',
                               body=json.dumps(transform_request))
-        put_file_complete(_server_endpoint, _file_path, "failure", 0, 0.0)
+        put_file_complete(_server_endpoint, _file_path, _file_id,
+                          "failure", 0, 0.0)
     finally:
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
