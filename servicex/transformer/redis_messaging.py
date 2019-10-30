@@ -34,7 +34,7 @@ import codecs
 class RedisMessaging:
     def __init__(self, host='redis.slateci.net', port=6379):
 
-        self.MAX_MESSAGES_PER_REQUEST = 100
+        self.MAX_MESSAGES_PER_REQUEST = 100000
         if 'MAX_MESSAGES_PER_REQUEST' in os.environ:
             self.MAX_MESSAGES_PER_REQUEST = int(os.environ['MAX_MESSAGES_PER_REQUEST'])
         print("max messages per request:", self.MAX_MESSAGES_PER_REQUEST)

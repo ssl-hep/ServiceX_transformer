@@ -31,6 +31,8 @@ parser.add_argument('--avg-bytes', dest="avg_bytes_per_column", action='store',
                     help='Average number of bytes per column per event',
                     default='40')
 
+default_servicex_endpoint = 'https://servicex-frontend.uc.ssl-hep.org:443'
+
 
 def validate_branches(file_name, branch_names):
     print("Validating file: " + file_name)
@@ -81,6 +83,7 @@ def post_transform_start(endpoint, info):
 def callback(channel, method, properties, body):
     validation_request = json.loads(body)
 
+<<<<<<< HEAD
     columns = list(map(lambda b: b.strip(),
                        validation_request['columns'].split(",")))
 
