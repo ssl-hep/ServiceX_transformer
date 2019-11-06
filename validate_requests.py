@@ -83,7 +83,6 @@ def post_transform_start(endpoint, info):
 def callback(channel, method, properties, body):
     validation_request = json.loads(body)
 
-<<<<<<< HEAD
     columns = list(map(lambda b: b.strip(),
                        validation_request['columns'].split(",")))
 
