@@ -57,14 +57,13 @@ class XAODTransformer:
             object_array = awkward.fromiter(events)
             attr_dict = {}
             for attr_name in self.event_iterator.attr_name_list:
-                print("Hello world 1")
                 branch_name = attr_name.split('.')[0].strip(' ')
-                print("Hello world 2")
                 a_name = attr_name.split('.')[1]
-                print("Hello world 3")
+                print(branch_name + '_' + a_name.strip('()'))
+                print(branch_name)
+                print(a_name)
                 attr_dict[branch_name + '_' + a_name.strip('()')] = \
                     object_array[branch_name][a_name]
-                print("Hello world 4")
 
             object_table = awkward.Table(**attr_dict)
             yield awkward.toarrow(object_table)
