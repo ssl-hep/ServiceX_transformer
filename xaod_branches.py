@@ -163,7 +163,6 @@ def write_branches_to_arrow(messaging, topic_name, file_path, file_id, attr_name
         total_events = total_events + pa_table.num_rows
         batches = pa_table.to_batches(chunksize=chunk_size)
 
-        print("Hello world 1")
         for batch in batches:
             if messaging:
                 key = file_path + "-" + str(batch_number)
@@ -186,7 +185,6 @@ def write_branches_to_arrow(messaging, topic_name, file_path, file_id, attr_name
                       " events published to " + topic_name,
                       "Avg Cell Size = " + str(avg_cell_size) + " bytes")
                 batch_number += 1
-        print("Hello world 2")
 
     if object_store:
         _close_scratch_file(args.result_format, scratch_writer)

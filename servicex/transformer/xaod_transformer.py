@@ -53,6 +53,7 @@ class XAODTransformer:
                     done = True
                     yield results
 
+        print("Hello world 1")
         for events in group(self.event_iterator.iterate(event_limit), chunk_size):
             object_array = awkward.fromiter(events)
             attr_dict = {}
@@ -65,3 +66,4 @@ class XAODTransformer:
 
             object_table = awkward.Table(**attr_dict)
             yield awkward.toarrow(object_table)
+        print("Hello world 2")
