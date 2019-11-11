@@ -62,8 +62,8 @@ class XAODTransformer:
                 print(branch_name)
                 print(a_name)
                 print(branch_name + '_' + a_name.strip('()'))
-                attr_dict[branch_name + '_' + a_name.strip('()')] = \
-                    object_array[branch_name][a_name]
+                attr_dict[branch_name + '_' + a_name.strip('()')] = object_array[branch_name][a_name]
+                print("Finally, " + branch_name)
 
             object_table = awkward.Table(**attr_dict)
             yield awkward.toarrow(object_table)
