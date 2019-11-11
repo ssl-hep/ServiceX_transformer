@@ -143,17 +143,21 @@ def put_file_complete(endpoint, file_path, file_id, status,
 def write_branches_to_arrow(messaging, topic_name, file_path, file_id, attr_name_list,
                             chunk_size, server_endpoint, event_limit=None,
                             object_store=None):
+    print("Hello world 1")
     sw = ROOT.TStopwatch()
     sw.Start()
 
     scratch_writer = None
 
+    print("Hello world 2")
     event_iterator = XAODEvents(file_path, attr_name_list)
+    print("Hello world 3")
     transformer = XAODTransformer(event_iterator)
 
     batch_number = 0
     total_events = 0
     total_bytes = 0
+    print("Hello world 4")
     for pa_table in transformer.arrow_table(chunk_size, event_limit):
         if object_store:
             if not scratch_writer:
