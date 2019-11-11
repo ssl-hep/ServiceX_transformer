@@ -57,8 +57,8 @@ class XAODTransformer:
             object_array = awkward.fromiter(events)
             attr_dict = {}
             for attr_name in self.event_iterator.attr_name_list:
-                branch_name = attr_name.split('.')[0].strip(' ')
-                a_name = attr_name.split('.')[1]
+                branch_name = str(attr_name.split('.')[0].strip(' '))
+                a_name = str(attr_name.split('.')[1])
                 print(branch_name + '_' + a_name.strip('()'))
                 print(branch_name)
                 print(a_name)
