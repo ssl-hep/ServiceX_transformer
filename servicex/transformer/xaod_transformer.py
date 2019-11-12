@@ -63,6 +63,7 @@ class XAODTransformer:
                 print(a_name)
                 print(object_array[branch_name][a_name])
                 print(branch_name + '_' + a_name.strip('()'))
+                print(type(object_array))
                 full_name = str(branch_name + '_' + a_name.strip('()'))
                 attr_dict[full_name] = object_array[branch_name][a_name]
                 print("Finally, " + branch_name)
