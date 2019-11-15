@@ -36,9 +36,12 @@ default_servicex_endpoint = 'https://servicex-frontend.uc.ssl-hep.org:443'
 
 def validate_branches(file_name, branch_names):
     print("Validating file: " + file_name)
-    # file_in = ROOT.TFile.Open('AOD.11182705._000001.pool.root.1')
-    file_in = ROOT.TFile.Open(file_name)
-    tree_in = ROOT.xAOD.MakeTransientTree(file_in)
+    try:
+        # file_in = ROOT.TFile.Open('AOD.11182705._000001.pool.root.1')
+        file_in = ROOT.TFile.Open(file_name)
+        tree_in = ROOT.xAOD.MakeTransientTree(file_in)
+    except Exception:
+        return False, "Couldn't open file " + file_name
 
     estimated_size = int(args.avg_bytes_per_column) * len(branch_names)
 
