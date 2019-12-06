@@ -4,9 +4,6 @@ from __future__ import division
 import datetime
 import json
 import os
-import sys
-
-import argparse
 
 import time
 import pika
@@ -14,80 +11,18 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import requests
 
+from servicex.transformer.TransformerArgumentParser import TransformerArgumentParser
 from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.nanoaod_transformer import NanoAODTransformer
 from servicex.transformer.object_store_manager import ObjectStoreManager
 from servicex.transformer.nanoaod_events import NanoAODEvents
-
-default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
-                     "servicex-kafka-1.slateci.net:19092," \
-                     "servicex-kafka-2.slateci.net:19092"
-
-default_attr_names = "Events.Electron_pt,Events.Electron_eta,Muon_phi"
 
 
 # How many bytes does an average awkward array cell take up. This is just
 # a rule of thumb to calculate chunksize
 avg_cell_size = 42
 
-# What is the largest message we want to send (in megabytes).
-# Note this must be less than the kafka broker setting if we are using kafka
-default_max_message_size = 14.5
-
 messaging = None
-
-parser = argparse.ArgumentParser(
-    description='Transform Flat N-tuples into slimmed flat n-tuples.')
-
-parser.add_argument("--brokerlist", dest='brokerlist', action='store',
-                    default=default_brokerlist,
-                    help='List of Kafka broker to connect to')
-
-parser.add_argument("--topic", dest='topic', action='store',
-                    default='servicex',
-                    help='Kafka topic to publish arrays to')
-
-parser.add_argument("--chunks", dest='chunks', action='store',
-                    default=None,
-                    help='Arrow Buffer Chunksize')
-
-parser.add_argument("--tree", dest='tree', action='store',
-                    default="Events",
-                    help='Tree from which columns will be inspected')
-
-parser.add_argument("--attrs", dest='attr_names', action='store',
-                    default=default_attr_names,
-                    help='List of attributes to extract')
-
-parser.add_argument("--path", dest='path', action='store',
-                    default=None,
-                    help='Path to single Root file to transform')
-
-parser.add_argument("--limit", dest='limit', action='store',
-                    default=None,
-                    help='Max number of events to process')
-
-parser.add_argument('--result-destination', dest='result_destination', action='store',
-                    default='kafka', help='kafka, object-store',
-                    choices=['kafka', 'object-store'])
-
-parser.add_argument('--result-format', dest='result_format', action='store',
-                    default='arrow', help='arrow, parquet', choices=['arrow', 'parquet'])
-
-
-parser.add_argument("--dataset", dest='dataset', action='store',
-                    default=None,
-                    help='JSON Dataset document from DID Finder')
-
-parser.add_argument("--max-message-size", dest='max_message_size',
-                    action='store', default=default_max_message_size,
-                    help='Max message size in megabytes')
-
-parser.add_argument('--rabbit-uri', dest="rabbit_uri", action='store',
-                    default='host.docker.internal')
-
-parser.add_argument('--request-id', dest='request_id', action='store',
-                    default=None, help='Request ID to read from queue')
 
 
 # Use a heuristic to guess at an optimum message chunk to fill the
@@ -239,22 +174,14 @@ def callback(channel, method, properties, body):
 
 
 if __name__ == "__main__":
-
-    # Print help if no args are provided
-    if len(sys.argv[1:]) == 0:
-        parser.print_help()
-        parser.exit()
-
+    parser = TransformerArgumentParser(description="Flat N-Tuple Transformer")
     args = parser.parse_args()
 
-    # Convert comma separated broker string to a list
-    kafka_brokers = list(map(lambda b: b.strip(), args.brokerlist.split(",")))
-
-    # Convert comma separated attribute string to a list
-    _attr_list = list(map(lambda b: b.strip(), args.attr_names.split(",")))
+    kafka_brokers = TransformerArgumentParser.extract_kafka_brokers(args.brokerlist)
+    _attr_list = TransformerArgumentParser.extract_attr_list(args.attr_names)
 
     if args.result_destination == 'kafka':
-        messaging = KafkaMessaging(kafka_brokers, float(args.max_message_size))
+        messaging = KafkaMessaging(kafka_brokers, args.max_message_size)
         object_store = None
     elif args.result_destination == 'object-store':
         messaging = None
@@ -264,10 +191,9 @@ if __name__ == "__main__":
         print("Object store initialized to ", object_store.minio_client)
 
     if args.chunks:
-        chunk_size = int(args.chunks)
+        chunk_size = args.chunks
     else:
-        chunk_size = _compute_chunk_size(_attr_list,
-                                         float(args.max_message_size))
+        chunk_size = _compute_chunk_size(_attr_list, args.max_message_size)
 
     if args.request_id and not args.path:
         rabbitmq = pika.BlockingConnection(
