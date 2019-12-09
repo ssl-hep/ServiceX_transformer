@@ -178,17 +178,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     kafka_brokers = TransformerArgumentParser.extract_kafka_brokers(args.brokerlist)
-    _attr_list = TransformerArgumentParser.extract_attr_list(args.attr_names)
 
     if args.result_destination == 'kafka':
         messaging = KafkaMessaging(kafka_brokers, args.max_message_size)
         object_store = None
     elif args.result_destination == 'object-store':
         messaging = None
-        object_store = ObjectStoreManager(os.environ['MINIO_URL'],
-                                          os.environ['MINIO_ACCESS_KEY'],
-                                          os.environ['MINIO_SECRET_KEY'])
-        print("Object store initialized to ", object_store.minio_client)
+        object_store = ObjectStoreManager()
+
+    _attr_list = TransformerArgumentParser.extract_attr_list(args.attr_names)
 
     if args.chunks:
         chunk_size = args.chunks
