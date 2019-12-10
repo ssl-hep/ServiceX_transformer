@@ -1,4 +1,4 @@
-FROM atlas/analysisbase:latest
+FROM atlas/analysisbase:21.2.96
 
 LABEL maintainer Ilija Vukotic <ivukotic@cern.ch>
 

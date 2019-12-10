@@ -25,7 +25,6 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import sys
 import awkward
 
 
@@ -33,9 +32,21 @@ class NanoAODTransformer:
     def __init__(self, event_iterator):
         self.event_iterator = event_iterator
 
-    def arrow_table(self, chunk_size, event_limit=sys.maxsize):
-            for object_array in self.event_iterator.iterate(event_limit):
-                unicode_array = {}
-                for key in object_array.keys():
-                    unicode_array[key.decode('UTF8')] = object_array[key]
-                yield awkward.toarrow(awkward.Table(unicode_array))
+    @property
+    def file_path(self):
+        return self.event_iterator.file_path
+
+    @property
+    def attr_name_list(self):
+        return self.event_iterator.attr_name_list
+
+    @property
+    def chunk_size(self):
+        return self.event_iterator.chunk_size
+
+    def arrow_table(self):
+        for object_array in self.event_iterator.iterate():
+            unicode_array = {}
+            for key in object_array.keys():
+                unicode_array[key.decode('UTF8')] = object_array[key]
+            yield awkward.toarrow(awkward.Table(unicode_array))
