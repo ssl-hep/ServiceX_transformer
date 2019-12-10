@@ -40,7 +40,7 @@ def _parse_column_name(attr):
 
 class NanoAODEvents:
 
-    def __init__(self, file_path, tree_name, attr_name_list, chunk_size):
+    def __init__(self, file_path, tree_name, attr_name_list, chunk_size, event_limit=None):
 
         self.file_path = file_path
         self.file_in = uproot.open(file_path)
@@ -48,10 +48,11 @@ class NanoAODEvents:
 
         self.attr_name_list = attr_name_list
         self.chunk_size = chunk_size
+        self.event_limit = event_limit
 
     def get_entry_count(self):
         return self.tree.numentries
 
-    def iterate(self, event_limit=None):
+    def iterate(self):
         for things in self.tree.iterate(self.attr_name_list, entrysteps=self.chunk_size):
             yield things

@@ -94,7 +94,7 @@ class TransformerArgumentParser(argparse.ArgumentParser):
                           default='host.docker.internal')
 
         self.add_argument('--request-id', dest='request_id', action='store',
-                          default=None, help='Request ID to read from queue')
+                          default='servicex', help='Request ID to read from queue')
 
     @classmethod
     def extract_kafka_brokers(cls, brokerlist):

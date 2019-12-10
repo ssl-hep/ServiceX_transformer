@@ -25,39 +25,22 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import os
-
-from servicex.transformer.object_store_manager import ObjectStoreManager
+import pika
 
 
-class TestObjectStoreManager:
-    def test_init(self, mocker):
-        mock_minio = mocker.patch('minio.Minio')
-        ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'foo'
-        assert called_config['secret_key'] == 'bar'
-        assert not called_config['secure']
+class RabbitMQManager:
 
-    def test_init_from_env(self, mocker):
-        os.environ['MINIO_URL'] = 'localhost:9999'
-        os.environ['MINIO_ACCESS_KEY'] = 'test'
-        os.environ['MINIO_SECRET_KEY'] = 'shhh'
-        mock_minio = mocker.patch('minio.Minio')
+    def __init__(self, rabbit_uri, queue_name, callback):
+        self.rabbitmq = pika.BlockingConnection(
+            pika.URLParameters(rabbit_uri)
+        )
+        _channel = self.rabbitmq.channel()
 
-        ObjectStoreManager()
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'test'
-        assert called_config['secret_key'] == 'shhh'
-        assert not called_config['secure']
+        # Set to one since our ops take a long time.
+        # Give another client a chance
+        _channel.basic_qos(prefetch_count=1)
 
-    def test_upload_file(self, mocker):
-        import minio
-        mock_minio = mocker.MagicMock(minio.api.Minio)
-        mock_minio.fput_object = mocker.Mock()
-        mocker.patch('minio.Minio', return_value=mock_minio)
-        result = ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        result.upload_file("my-bucket", "foo.txt", "/tmp/foo.txt")
-        mock_minio.fput_object.assert_called()
+        _channel.basic_consume(queue=queue_name,
+                               auto_ack=False,
+                               on_message_callback=callback)
+        _channel.start_consuming()

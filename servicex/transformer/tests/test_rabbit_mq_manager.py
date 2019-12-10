@@ -25,39 +25,33 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import os
+import pika
 
-from servicex.transformer.object_store_manager import ObjectStoreManager
+from servicex.transformer.rabbit_mq_manager import RabbitMQManager
 
 
-class TestObjectStoreManager:
+class TestRabbitMQManager:
     def test_init(self, mocker):
-        mock_minio = mocker.patch('minio.Minio')
-        ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'foo'
-        assert called_config['secret_key'] == 'bar'
-        assert not called_config['secure']
+        def callback():
+            return "hi"
 
-    def test_init_from_env(self, mocker):
-        os.environ['MINIO_URL'] = 'localhost:9999'
-        os.environ['MINIO_ACCESS_KEY'] = 'test'
-        os.environ['MINIO_SECRET_KEY'] = 'shhh'
-        mock_minio = mocker.patch('minio.Minio')
+        mock_url_parameters = mocker.patch('pika.URLParameters', return_value="mock_url")
+        mock_channel = mocker.MagicMock(pika.adapters.blocking_connection.BlockingChannel)
+        mock_channel.basic_qos = mocker.Mock()
+        mock_channel.basic_consume = mocker.Mock()
+        mock_channel.start_consuming = mocker.Mock()
+        mock_conn = mocker.MagicMock(pika.BlockingConnection)
+        mock_conn.channel = mocker.Mock(return_value=mock_channel)
 
-        ObjectStoreManager()
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'test'
-        assert called_config['secret_key'] == 'shhh'
-        assert not called_config['secure']
+        mock_pika = mocker.patch('pika.BlockingConnection', return_value=mock_conn)
 
-    def test_upload_file(self, mocker):
-        import minio
-        mock_minio = mocker.MagicMock(minio.api.Minio)
-        mock_minio.fput_object = mocker.Mock()
-        mocker.patch('minio.Minio', return_value=mock_minio)
-        result = ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        result.upload_file("my-bucket", "foo.txt", "/tmp/foo.txt")
-        mock_minio.fput_object.assert_called()
+        RabbitMQManager("http:/foo.com", "servicex", callback)
+
+        mock_url_parameters.assert_called_with("http:/foo.com")
+        mock_pika.assert_called_with("mock_url")
+        mock_channel.basic_qos.assert_called_with(prefetch_count=1)
+
+        basic_consume_config = mock_channel.basic_consume.call_args[1]
+        assert basic_consume_config['queue'] == 'servicex'
+        assert not basic_consume_config['auto_ack']
+        mock_channel.start_consuming.assert_called()
