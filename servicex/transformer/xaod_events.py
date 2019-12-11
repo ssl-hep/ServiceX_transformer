@@ -32,7 +32,9 @@ import ROOT
 class XAODEvents:
     def __init__(self, file_path, attr_name_list, chunk_size, event_limit=None):
         self.file_path = file_path
+        print("Openning ", file_path)
         self.file_in = ROOT.TFile.Open(file_path)
+        print(self.file_in)
         self.tree = ROOT.xAOD.MakeTransientTree(self.file_in)
         self.attr_name_list = attr_name_list
         self.event_limit = event_limit

@@ -86,11 +86,13 @@ class TestArrowWriter:
         scratch_file_init.assert_called_with(file_format='parquet')
         mock_transformer.arrow_table.assert_called_with()
         mock_scratch_file.open_scratch_file.assert_called_once_with(table)
-        mock_scratch_file.append_table_to_scratch.assert_has_calls([call(table), call(table2)])
+        mock_scratch_file.append_table_to_scratch.assert_has_calls(
+            [call(table), call(table2)])
 
         mock_scratch_file.close_scratch_file.assert_called_once()
 
-        mock_object_store.upload_file.assert_called_once_with("123-45", ":tmp:foo", "/tmp/foo")
+        mock_object_store.upload_file.assert_called_once_with("123-45", ":tmp:foo",
+                                                              "/tmp/foo")
         mock_scratch_file.remove_scratch_file.assert_called_once()
         mock_requests_post.assert_called_once()
         name, args = mock_requests_post.call_args
@@ -103,3 +105,78 @@ class TestArrowWriter:
         assert args['json']['total-events'] == 26
         assert args['json']['file-path'] == '/tmp/foo'
         assert args['json']['file-id'] == 42
+
+    def test_transform_file_kafka(self, mocker):
+        mock_kafka = mocker.MagicMock(KafkaMessaging)
+
+        mock_requests_put = mocker.patch('requests.put')
+        mock_requests_post = mocker.patch('requests.post')
+
+        aw = ArrowWriter(file_format='parquet',
+                         server_endpoint='http://foo.bar',
+                         object_store=None,
+                         messaging=mock_kafka)
+
+        mock_transformer = mocker.MagicMock(NanoAODTransformer)
+        mock_transformer.file_path = '/tmp/foo'
+        mock_transformer.chunk_size = 100
+        mock_transformer.attr_name_list = ['a', 'b']
+
+        data = OrderedDict([('strs', [chr(c) for c in range(ord('a'), ord('n'))]),
+                            ('ints', list(range(1, 14)))])
+        table = pa.Table.from_pydict(data)
+        table2 = pa.Table.from_pydict(data)
+
+        mock_transformer.arrow_table = mocker.Mock(return_value=iter([table, table2]))
+        aw.write_branches_to_arrow(transformer=mock_transformer, topic_name='servicex',
+                                   file_id=42, request_id="123-45")
+
+        mock_transformer.arrow_table.assert_called_with()
+
+        kafka_calls = mock_kafka.publish_message.call_args_list
+        assert len(kafka_calls) == 2
+        topic, key, py_arrow_buffer = kafka_calls[0][0]
+        assert topic == 'servicex'
+        assert key == '/tmp/foo-0'
+
+        reader = pa.RecordBatchStreamReader(py_arrow_buffer)
+        table = reader.read_all()
+        assert table.column_names == ['strs', 'ints']
+        mock_requests_post.assert_called_once()
+        name, args = mock_requests_post.call_args
+
+        assert name[0] == 'http://foo.bar/status'
+
+        mock_requests_put.assert_called_once()
+        name, args = mock_requests_put.call_args
+        assert name[0] == 'http://foo.bar/file-complete'
+        assert args['json']['total-events'] == 26
+        assert args['json']['file-path'] == '/tmp/foo'
+        assert args['json']['file-id'] == 42
+
+    def test_transform_file_no_servicex(self, mocker):
+        mock_requests_put = mocker.patch('requests.put')
+        mock_requests_post = mocker.patch('requests.post')
+
+        aw = ArrowWriter(file_format='parquet',
+                         server_endpoint=None,
+                         object_store=None,
+                         messaging=None)
+
+        mock_transformer = mocker.MagicMock(NanoAODTransformer)
+        mock_transformer.file_path = '/tmp/foo'
+        mock_transformer.chunk_size = 100
+        mock_transformer.attr_name_list = ['a', 'b']
+
+        data = OrderedDict([('strs', [chr(c) for c in range(ord('a'), ord('n'))]),
+                            ('ints', list(range(1, 14)))])
+        table = pa.Table.from_pydict(data)
+        table2 = pa.Table.from_pydict(data)
+
+        mock_transformer.arrow_table = mocker.Mock(return_value=iter([table, table2]))
+        aw.write_branches_to_arrow(transformer=mock_transformer, topic_name='servicex',
+                                   file_id=42, request_id="123-45")
+
+        mock_transformer.arrow_table.assert_called_with()
+        mock_requests_put.assert_not_called()
+        mock_requests_post.assert_not_called()
