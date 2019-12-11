@@ -4,12 +4,22 @@ services:
   - docker
 
 before_script:
-  - docker pull sslhep/servicex-transformer:rabbitmq || true
+  - docker pull sslhep/servicex-transformer:latest || true
 
 script:
-  - docker build --cache-from sslhep/servicex-transformer:rabbitmq -t sslhep/servicex-transformer:${TRAVIS_BRANCH} .
-  - docker run sslhep/servicex-transformer:${TRAVIS_BRANCH} bash -c "source /home/atlas/.bashrc && flake8"
-  - docker run -e "CODECOV_TOKEN=$CODECOV_TOKEN" sslhep/servicex-transformer:${TRAVIS_BRANCH} bash -c "source /home/atlas/.bashrc &&  coverage run -m pytest -v; codecov"
+  - docker build --cache-from sslhep/servicex-transformer-base:develop -t sslhep/servicex-transformer-base:${TRAVIS_BRANCH} .
+  - docker run sslhep/servicex-transformer-base:${TRAVIS_BRANCH} bash -c "source /home/atlas/.bashrc && flake8"
+  # The tests that use pyROOT are causing segfaults when run with the full suite. Run them seperatly and combine the code coverage results
+  - |
+    docker run -e "CODECOV_TOKEN=$CODECOV_TOKEN" sslhep/servicex-transformer-base:${TRAVIS_BRANCH} bash -c 'source /home/atlas/.bashrc &&
+      COVERAGE_FILE=.non_root coverage run -m pytest -v -k "not test_get_entry_count and not test_event_iter_no_limit and not test_arrow_table" &&
+      COVERAGE_FILE=.events coverage run -m pytest servicex/transformer/tests/test_xaod_events.py &&
+      COVERAGE_FILE=.transformer coverage run -m pytest servicex/transformer/tests/test_xaod_transformer.py &&
+      coverage combine .non_root .events .transformer &&
+      codecov'
+
+  - docker build --build-arg BASE_VERSION=${TRAVIS_BRANCH} -f Dockerfile.uprootTransformer -t sslhep/servicex-transformer-uproot:${TRAVIS_BRANCH} .
+  - docker build --build-arg BASE_VERSION=${TRAVIS_BRANCH} -f Dockerfile.xAODTransformer -t sslhep/servicex-transformer-xaod:${TRAVIS_BRANCH} .
 
 after_script:
   - docker images
@@ -18,6 +28,6 @@ before_deploy:
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
 deploy:
   provider: script
-  script: docker push sslhep/servicex-transformer:${TRAVIS_BRANCH}
+  script: docker push sslhep/servicex-transformer-base:${TRAVIS_BRANCH} && docker push sslhep/servicex-transformer-uproot:${TRAVIS_BRANCH} && docker push sslhep/servicex-transformer-xaod:${TRAVIS_BRANCH}
   on:
       all_branches: true

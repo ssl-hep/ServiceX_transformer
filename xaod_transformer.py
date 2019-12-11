@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 from __future__ import division
-
+import ROOT
 import json
 
-from servicex.transformer.TransformerArgumentParser import TransformerArgumentParser
+from servicex.transformer.transformer_argument_parser import TransformerArgumentParser
 from servicex.transformer.kafka_messaging import KafkaMessaging
-from servicex.transformer.nanoaod_transformer import NanoAODTransformer
 from servicex.transformer.object_store_manager import ObjectStoreManager
-from servicex.transformer.nanoaod_events import NanoAODEvents
+from servicex.transformer.xaod_events import XAODEvents
+from servicex.transformer.xaod_transformer import XAODTransformer
 from servicex.transformer.arrow_writer import ArrowWriter
 
 
@@ -31,7 +31,6 @@ def _compute_chunk_size(attr_list, max_message_size):
 def callback(channel, method, properties, body):
     transform_request = json.loads(body)
     _request_id = transform_request['request-id']
-    _tree_name = transform_request['tree-name']
     _file_path = transform_request['file-path']
     _file_id = transform_request['file-id']
     _server_endpoint = transform_request['service-endpoint']
@@ -44,13 +43,13 @@ def callback(channel, method, properties, body):
 
     print(_file_path)
     try:
-        event_iterator = NanoAODEvents(_file_path, _tree_name, columns, chunk_size)
-        transformer = NanoAODTransformer(event_iterator)
+        event_iterator = XAODEvents(file_path=_file_path, attr_name_list=columns,
+                                    chunk_size=chunk_size)
+        transformer = XAODTransformer(event_iterator)
 
         arrow_writer.write_branches_to_arrow(transformer=transformer, topic_name=_request_id,
                                              file_id=_file_id,
-                                             request_id=args.request_id,
-                                             event_limit=None)
+                                             request_id=args.request_id)
 
     except Exception as error:
         transform_request['error'] = str(error)
@@ -71,9 +70,9 @@ def transform_single_file(file_path, tree, attr_list, chunk_size):
                                server_endpoint=None,
                                object_store=object_store, messaging=messaging)
 
-    event_iterator = NanoAODEvents(file_path=file_path, tree_name=tree,
-                                   attr_name_list=attr_list, chunk_size=chunk_size)
-    transformer = NanoAODTransformer(event_iterator)
+    event_iterator = XAODEvents(file_path=file_path,
+                                attr_name_list=attr_list, chunk_size=chunk_size)
+    transformer = XAODTransformer(event_iterator)
 
     arrow_writer.write_branches_to_arrow(transformer=transformer,
                                          topic_name=args.topic,
@@ -82,7 +81,9 @@ def transform_single_file(file_path, tree, attr_list, chunk_size):
 
 
 if __name__ == "__main__":
-    parser = TransformerArgumentParser(description="Flat N-Tuple Transformer")
+    ROOT.gROOT.Macro('$ROOTCOREDIR/scripts/load_packages.C')
+
+    parser = TransformerArgumentParser(description="xAOD Transformer")
     args = parser.parse_args()
 
     kafka_brokers = TransformerArgumentParser.extract_kafka_brokers(args.brokerlist)

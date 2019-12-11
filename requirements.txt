@@ -5,7 +5,7 @@ lz4
 requests>=2.22.0
 pyarrow
 kafka
-confluent_kafka
+confluent_kafka==1.2.0
 pympler
 pika
 minio

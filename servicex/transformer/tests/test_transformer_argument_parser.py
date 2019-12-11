@@ -27,7 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import argparse
 import sys
-from servicex.transformer.TransformerArgumentParser import TransformerArgumentParser
+from servicex.transformer.transformer_argument_parser import TransformerArgumentParser
 
 
 class TestTransformerArgumentParser:
