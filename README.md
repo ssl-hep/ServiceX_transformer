@@ -4,8 +4,13 @@
 [![codecov](https://codecov.io/gh/ssl-hep/ServiceX_transformer/branch/master/graph/badge.svg)](https://codecov.io/gh/ssl-hep/ServiceX_transformer)
 
 
-Allows user to access an xAOD-formatted TTree in a ROOT file via a standalone
-ATLAS analysis release. This is based a Docker image found here:
+Allows a user to extract columns from a Root file. There are two supported 
+transformers available in this repo:
+1. xaod_transformer - Uses pyroot to extract data from xAOD files
+2. uproot_transformer - Uses uproot to pull data out of a tree in a flat
+Root file.
+
+Both of these are based a Docker image found here:
     https://hub.docker.com/r/atlas/analysisbase
     
 The transformer accepts a list of columns (Root Branches) to extract from the 
@@ -13,76 +18,79 @@ file along with Root files. It extracts the data into awkward arrays and
 publishes arrow buffers to a backend messaging system.
 
 # How to Build
-Build the docker image as:
+The base docker image can be built as:
 ```bash
-docker build -t sslhep/servicex-transformer:latest .
+docker build -t sslhep/servicex-transformer-base:develop .
 ```
 
+Once you have this image, you can build the two variations as
+```bash
+docker build --build-arg BASE_VERSION=develop -f Dockerfile.uprootTransformer -t sslhep/servicex-transformer-uproot:develop .
+docker build --build-arg BASE_VERSION=develop -f Dockerfile.xAODTransformer -t sslhep/servicex-transformer-xaod:develop .
+```
 # How to Run
 The container is designed to run inside a kubernetes cluster as part of the 
 serviceX application. It can also be run standalone as a CLI utility for 
 transforming ROOT files.
 
-You can open up a shell into the container with
+
+You can launch a container with an X509 proxy mounted in a docker volume as:
 
 ```bash
-%  docker run -it sslhep/servicex-transformer bash         
+docker run --rm 
+    --mount type=bind,source=$HOME/.globus,readonly,target=/etc/grid-certs 
+    --mount type=bind,source="$(pwd)"/secrets/secrets.txt,target=/servicex/secrets.txt 
+    --mount type=volume,source=x509,target=/etc/grid-security 
+    --name=x509-secrets sslhep/x509-secrets:latest
+    
+
+docker run --rm -it \                                                                                                     
+    --mount type=volume,source=x509,target=/etc/grid-security-ro \
+    sslhep/servicex-transformer:develop bash  
 ```
 
-## xaod_branches.py
-This is the main script for the transformer. It has several command line options
-that control its operation. It can be used in the context of the serviceX 
-application where it will request files to transform from the serviceX REST api.
-Alternativly, it can be fed files to transform via command line arguments.
+## Transformer Scripts
+Both transformer scripts are included in the container:
+* `uproot_transformer.py`
+* `xaod_transformer.py`
 
-### Obtain Requests from ServiceX REST API
-By default, the transformer will contact ServiceX at `servicex.slateci.net`
-to request the next file to transform. If no files are available, the 
-script will poll, waiting 10 seconds between requests.
+Both of them have a common set of command line arguments. The scripts are 
+usually launched by the ServiceX Transformer Manager as job where each 
+instance of the transformer pulls requests for ROOT files from a RabbitMQ.
 
-### Obtain Requests from Command Line Arguments
-For testing and benchmarking, it is often convenient to supply files from the
-command line. There are two mechanisms for that:
+The scripts can also be called from the command line with a path to a 
+Root file.
+ 
+# Transformed Result Output
+Command line arguments determine a destination for the results as well as 
+an output format.
 
-1. Supply a path to the root file in the command line
-2. Provide a JSON file with output from the DID finder with paths to each file
-in a dataset
+* Kafka - Streaming system. Write messages formatted as Arrow tables. The 
+`chunks` parameter determines how many events are included in each message.
+* Object Store - Each transformed file is written as an object to an
+S3 compatible object store. The only currently supported output file
+format is parquet. The objects are stored in a bucket named after the 
+transformation request ID.
 
-See the argument reference for the exact paramters for each of these options
-
-### Messaging Backend
-The transformer writes the generated awkward arrays to a messaging backend for
-delivery to analysis applications. You can choose between:
-* Kafka - for a fully cached, resource intensive topic as output
-* Object-Store - For saving modest result sets that can be downloaded
-
-These can be selected from command line options. There are numerous options for
-each backend.
 
 ### Command Line Reference
 |Option| Description | Default |
 | ------ | ----------- | ------- |
-| --servicex SERVICEX_ENDPOINT | Endpoint for servicex REST API | servicex.slateci.net  |
-| --dataset DATASET | Path to JSON Dataset document from DID Finder with collection of ROOT Files to process | |
-| --path PATH | Path to single Root file to transform | |
-| --max-message-size | Maximum size for any message in Megabytes | 14.5 Mb |
-| --chunks CHUNKS | Number of events to include in each message. If ommitted, it will compute a best guess based on heuristics and max message size | None |
+| --brokerlist BROKERLIST | List of Kafka broker to connect to if streaming is selected | servicex-kafka-0.slateci.net:19092, servicex-kafka-1.slateci.net:19092, servicex-kafka-2.slateci.net:19092" |
+| --topic TOPIC | Kafka topic to publish arrays to | servicex |   
+| --chunks CHUNKS | Number of events to include in each message. If ommitted, it will compute a best guess based on heuristics and max message size | None |                   
+| --tree TREE | Root Tree to extract data from. Only valid for uproot transformer | Events
 | --attrs ATTR_NAMES | List of attributes to extract | Electrons.pt(), Electrons.eta(), Electrons.phi(), Electrons.e()|
+| --path PATH | Path to single Root file to transform. Any file path readable by xrootd | |
 | --limit LIMIT | Max number of events to process | |
-| --result-destination | Where to send the results: kafka or object-store | kafka
+| --result-destination DEST| Where to send the results: kafka or object-store | kafka
 | --result-format | Binary format for the results: arrow or parquet | arrow
-| --topic TOPIC | Kafka topic to publish arrays to | servicex |
-| --brokerlist BROKERLIST | List of Kafka broker to connect to | servicex-kafka-0.slateci.net:19092, servicex-kafka-1.slateci.net:19092, servicex-kafka-2.slateci.net:19092" |                      
+| --max-message-size | Maximum size for any message in Megabytes | 14.5 Mb |
+| --rabbit-uri URI | RabbitMQ Connection URI | host.docker.internal |
+| --request-id GUID| ID associated with this transformation request. Used as RabbitMQ Topic Name as well as object-store bucket | servicex
+
 
 ## Development
-There are several command line options available for exercising the service
-in a development environment. Since the service relies on some specific Atlas
-tooling we usually execute inside the container. 
-
-To build a local image:
-```bash
-docker build -t docker build -t sslhep/servicex-transformer:rabbitmq .
-```
 
 For ease, we often will launch a bash shell with this repo's source code
 mounted as a volume. You can edit the source code using your desktop's tools
@@ -95,7 +103,7 @@ docker run -it \
     --mount type=bind,source=$(pwd),target=/code \
     --mount type=bind,source=$(pwd)/../data,target=/data \
     --mount type=volume,source=x509,target=/etc/grid-security-ro \
-    sslhep/servicex-transformer:latest bash
+    sslhep/servicex-transformer:develop bash
 ```
 
 This assumes that you have a directory above this repo called `data` that has 

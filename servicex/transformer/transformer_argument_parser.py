@@ -81,10 +81,6 @@ class TransformerArgumentParser(argparse.ArgumentParser):
                           default='arrow', help='arrow, parquet',
                           choices=['arrow', 'parquet'])
 
-        self.add_argument("--dataset", dest='dataset', action='store',
-                          default=None,
-                          help='JSON Dataset document from DID Finder')
-
         self.add_argument("--max-message-size", dest='max_message_size',
                           action='store', default=default_max_message_size,
                           type=int,
