@@ -3,6 +3,7 @@ from __future__ import division
 import ROOT
 import json
 
+from servicex.transformer.servicex_adapter import ServiceXAdapter
 from servicex.transformer.transformer_argument_parser import TransformerArgumentParser
 from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.object_store_manager import ObjectStoreManager
@@ -36,9 +37,10 @@ def callback(channel, method, properties, body):
     _server_endpoint = transform_request['service-endpoint']
     columns = list(map(lambda b: b.strip(),
                        transform_request['columns'].split(",")))
+    servicex = ServiceXAdapter(_server_endpoint)
 
     arrow_writer = ArrowWriter(file_format=args.result_format,
-                               server_endpoint=_server_endpoint,
+                               servicex=servicex,
                                object_store=object_store, messaging=messaging)
 
     print(_file_path)
@@ -47,7 +49,8 @@ def callback(channel, method, properties, body):
                                     chunk_size=chunk_size)
         transformer = XAODTransformer(event_iterator)
 
-        arrow_writer.write_branches_to_arrow(transformer=transformer, topic_name=_request_id,
+        arrow_writer.write_branches_to_arrow(transformer=transformer,
+                                             topic_name=_request_id,
                                              file_id=_file_id,
                                              request_id=args.request_id)
 
@@ -56,9 +59,9 @@ def callback(channel, method, properties, body):
         channel.basic_publish(exchange='transformation_failures',
                               routing_key=_request_id + '_errors',
                               body=json.dumps(transform_request))
-        arrow_writer.put_file_complete(file_path=_file_path, file_id=_file_id,
-                                       status='failure', num_messages=0, total_time=0,
-                                       total_events=0, total_bytes=0)
+        servicex.put_file_complete(file_path=_file_path, file_id=_file_id,
+                                   status='failure', num_messages=0, total_time=0,
+                                   total_events=0, total_bytes=0)
     finally:
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -67,7 +70,7 @@ def transform_single_file(file_path, tree, attr_list, chunk_size):
     print("Transforming a single path: " + str(args.path))
 
     arrow_writer = ArrowWriter(file_format=args.result_format,
-                               server_endpoint=None,
+                               servicex=None,
                                object_store=object_store, messaging=messaging)
 
     event_iterator = XAODEvents(file_path=file_path,

@@ -35,6 +35,7 @@ from servicex.transformer.nanoaod_transformer import NanoAODTransformer
 from servicex.transformer.object_store_manager import ObjectStoreManager
 from servicex.transformer.nanoaod_events import NanoAODEvents
 from servicex.transformer.arrow_writer import ArrowWriter
+from servicex.transformer.servicex_adapter import ServiceXAdapter
 
 
 # How many bytes does an average awkward array cell take up. This is just
@@ -64,8 +65,10 @@ def callback(channel, method, properties, body):
     columns = list(map(lambda b: b.strip(),
                        transform_request['columns'].split(",")))
 
+    servicex = ServiceXAdapter(_server_endpoint)
+
     arrow_writer = ArrowWriter(file_format=args.result_format,
-                               server_endpoint=_server_endpoint,
+                               servicex=servicex,
                                object_store=object_store, messaging=messaging)
 
     print(_file_path)
@@ -82,9 +85,9 @@ def callback(channel, method, properties, body):
         channel.basic_publish(exchange='transformation_failures',
                               routing_key=_request_id + '_errors',
                               body=json.dumps(transform_request))
-        arrow_writer.put_file_complete(file_path=_file_path, file_id=_file_id,
-                                       status='failure', num_messages=0, total_time=0,
-                                       total_events=0, total_bytes=0)
+        servicex.put_file_complete(file_path=_file_path, file_id=_file_id,
+                                   status='failure', num_messages=0, total_time=0,
+                                   total_events=0, total_bytes=0)
     finally:
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -93,7 +96,7 @@ def transform_single_file(file_path, tree, attr_list, chunk_size):
     print("Transforming a single path: " + str(args.path))
 
     arrow_writer = ArrowWriter(file_format=args.result_format,
-                               server_endpoint=None,
+                               servicex=None,
                                object_store=object_store, messaging=messaging)
 
     event_iterator = NanoAODEvents(file_path=file_path, tree_name=tree,

@@ -34,19 +34,22 @@ from servicex.transformer.object_store_manager import ObjectStoreManager
 from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.nanoaod_transformer import NanoAODTransformer
 import pyarrow as pa
+from servicex.transformer.servicex_adapter import ServiceXAdapter
 
 
 class TestArrowWriter:
     def test_init(self, mocker):
         mock_object_store = mocker.MagicMock(ObjectStoreManager)
         mock_messaging = mocker.MagicMock(KafkaMessaging)
+        mock_servicex = mocker.MagicMock(ServiceXAdapter)
+
         aw = ArrowWriter(file_format='hdf5',
-                         server_endpoint='http://foo.bar',
+                         servicex=mock_servicex,
                          object_store=mock_object_store,
                          messaging=mock_messaging)
 
         assert aw.object_store == mock_object_store
-        assert aw.server_endpoint == 'http://foo.bar'
+        assert aw.servicex == mock_servicex
         assert aw.file_format == 'hdf5'
         assert aw.messaging == mock_messaging
 
@@ -61,11 +64,10 @@ class TestArrowWriter:
 
         mock_scratch_file.file_path = "/tmp/foo"
 
-        mock_requests_put = mocker.patch('requests.put')
-        mock_requests_post = mocker.patch('requests.post')
+        mock_servicex = mocker.MagicMock(ServiceXAdapter)
 
         aw = ArrowWriter(file_format='parquet',
-                         server_endpoint='http://foo.bar',
+                         servicex=mock_servicex,
                          object_store=mock_object_store,
                          messaging=None)
 
@@ -94,26 +96,27 @@ class TestArrowWriter:
         mock_object_store.upload_file.assert_called_once_with("123-45", ":tmp:foo",
                                                               "/tmp/foo")
         mock_scratch_file.remove_scratch_file.assert_called_once()
-        mock_requests_post.assert_called_once()
-        name, args = mock_requests_post.call_args
+        mock_servicex.post_status_update.assert_called_once()
+        status_args = mock_servicex.post_status_update.call_args
+        assert status_args[0][0] == 'File /tmp/foo complete'
 
-        assert name[0] == 'http://foo.bar/status'
+        mock_servicex.put_file_complete.assert_called_once()
+        complete_args = mock_servicex.put_file_complete.call_args
+        assert complete_args[0][0] == '/tmp/foo'
+        assert complete_args[0][1] == 42
+        assert complete_args[0][2] == 'success'
 
-        mock_requests_put.assert_called_once()
-        name, args = mock_requests_put.call_args
-        assert name[0] == 'http://foo.bar/file-complete'
-        assert args['json']['total-events'] == 26
-        assert args['json']['file-path'] == '/tmp/foo'
-        assert args['json']['file-id'] == 42
+        assert complete_args[1]['total_events'] == 26
+        assert complete_args[1]['num_messages'] == 0
+        assert complete_args[1]['total_bytes'] == 0
 
     def test_transform_file_kafka(self, mocker):
         mock_kafka = mocker.MagicMock(KafkaMessaging)
 
-        mock_requests_put = mocker.patch('requests.put')
-        mock_requests_post = mocker.patch('requests.post')
+        mock_servicex = mocker.MagicMock(ServiceXAdapter)
 
         aw = ArrowWriter(file_format='parquet',
-                         server_endpoint='http://foo.bar',
+                         servicex=mock_servicex,
                          object_store=None,
                          messaging=mock_kafka)
 
@@ -142,24 +145,23 @@ class TestArrowWriter:
         reader = pa.RecordBatchStreamReader(py_arrow_buffer)
         table = reader.read_all()
         assert table.column_names == ['strs', 'ints']
-        mock_requests_post.assert_called_once()
-        name, args = mock_requests_post.call_args
+        mock_servicex.post_status_update.assert_called_once()
+        status_args = mock_servicex.post_status_update.call_args
+        assert status_args[0][0] == 'File /tmp/foo complete'
 
-        assert name[0] == 'http://foo.bar/status'
+        mock_servicex.put_file_complete.assert_called_once()
+        complete_args = mock_servicex.put_file_complete.call_args
+        assert complete_args[0][0] == '/tmp/foo'
+        assert complete_args[0][1] == 42
+        assert complete_args[0][2] == 'success'
 
-        mock_requests_put.assert_called_once()
-        name, args = mock_requests_put.call_args
-        assert name[0] == 'http://foo.bar/file-complete'
-        assert args['json']['total-events'] == 26
-        assert args['json']['file-path'] == '/tmp/foo'
-        assert args['json']['file-id'] == 42
+        assert complete_args[1]['total_events'] == 26
+        assert complete_args[1]['num_messages'] == 2
+        assert complete_args[1]['total_bytes'] == 1152
 
     def test_transform_file_no_servicex(self, mocker):
-        mock_requests_put = mocker.patch('requests.put')
-        mock_requests_post = mocker.patch('requests.post')
-
         aw = ArrowWriter(file_format='parquet',
-                         server_endpoint=None,
+                         servicex=None,
                          object_store=None,
                          messaging=None)
 
@@ -178,5 +180,3 @@ class TestArrowWriter:
                                    file_id=42, request_id="123-45")
 
         mock_transformer.arrow_table.assert_called_with()
-        mock_requests_put.assert_not_called()
-        mock_requests_post.assert_not_called()

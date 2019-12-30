@@ -27,42 +27,16 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import time
 import pyarrow as pa
-import datetime
-import requests
 
 
 class ArrowWriter:
 
-    def __init__(self, file_format=None, server_endpoint=None,
+    def __init__(self, file_format=None, servicex=None,
                  object_store=None, messaging=None):
         self.file_format = file_format
-        self.server_endpoint = server_endpoint
+        self.servicex = servicex
         self.object_store = object_store
         self.messaging = messaging
-
-    def post_status_update(self, status_msg):
-        requests.post(self.server_endpoint + "/status", data={
-            "timestamp": datetime.datetime.now().isoformat(),
-            "status": status_msg
-        })
-
-    def put_file_complete(self, file_path, file_id, status,
-                          num_messages=None, total_time=None, total_events=None,
-                          total_bytes=None):
-        avg_rate = 0 if not total_time else total_events / total_time
-        doc = {
-            "file-path": file_path,
-            "file-id": file_id,
-            "status": status,
-            "num-messages": num_messages,
-            "total-time": total_time,
-            "total-events": total_events,
-            "total-bytes": total_bytes,
-            "avg-rate": avg_rate
-        }
-        print("------< ", doc)
-        if self.server_endpoint:
-            requests.put(self.server_endpoint + "/file-complete", json=doc)
 
     def write_branches_to_arrow(self, transformer,
                                 topic_name, file_id, request_id):
@@ -125,12 +99,14 @@ class ArrowWriter:
 
             scratch_writer.remove_scratch_file()
 
-        if self.server_endpoint:
-            self.post_status_update("File " + transformer.file_path + " complete")
+        if self.servicex:
+            self.servicex. post_status_update("File " + transformer.file_path + " complete")
 
         tock = time.time()
         print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")
-        self.put_file_complete(transformer.file_path, file_id, "success",
-                               num_messages=batch_number,
-                               total_time=round(tock - tick / 60.0, 2),
-                               total_events=total_events, total_bytes=total_bytes)
+        if self.servicex:
+            self.servicex.put_file_complete(transformer.file_path, file_id, "success",
+                                            num_messages=batch_number,
+                                            total_time=round(tock - tick / 60.0, 2),
+                                            total_events=total_events,
+                                            total_bytes=total_bytes)
