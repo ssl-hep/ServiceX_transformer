@@ -25,3 +25,52 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import setuptools
+
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name='servicex-transformer',
+    packages=setuptools.find_packages(),
+    version='0.2',
+    license='bsd 3 clause',
+    description='ServiceX Data Transformer for HEP Data',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+
+    author='Ben Galewsky',
+    author_email='bengal1@illinois.edu',
+    url='https://github.com/ssl-hep/ServiceX_transformer',
+    keywords=['HEP', 'Data Engineering', 'Data Lake'],
+    install_requires=[
+        'uproot',
+        'awkward >= 0.12.0',
+        'xxhash',
+        'lz4',
+        'requests >= 2.22.0',
+        'pyarrow',
+        'kafka',
+        'confluent_kafka == 1.2.0',
+        'pympler',
+        'pika',
+        'minio '
+    ],
+
+    extras_require={
+        'test': ['flake8==3.5',
+                 'coverage==4.5.2',
+                 'codecov==2.0.15'],
+    },
+
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',
+        'Topic :: Software Development :: Build Tools',
+        'License :: OSI Approved :: BSD License',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+    ],
+    python_requires='>=2.7',
+
+)

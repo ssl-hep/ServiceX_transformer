@@ -32,7 +32,7 @@ from mock import call
 from servicex.transformer.arrow_writer import ArrowWriter
 from servicex.transformer.object_store_manager import ObjectStoreManager
 from servicex.transformer.kafka_messaging import KafkaMessaging
-from servicex.transformer.nanoaod_transformer import NanoAODTransformer
+from servicex.transformer.uproot_transformer import UprootTransformer
 import pyarrow as pa
 from servicex.transformer.servicex_adapter import ServiceXAdapter
 
@@ -71,7 +71,7 @@ class TestArrowWriter:
                          object_store=mock_object_store,
                          messaging=None)
 
-        mock_transformer = mocker.MagicMock(NanoAODTransformer)
+        mock_transformer = mocker.MagicMock(UprootTransformer)
         mock_transformer.file_path = '/tmp/foo'
         mock_transformer.chunk_size = 100
         mock_transformer.attr_name_list = ['a', 'b']
@@ -120,7 +120,7 @@ class TestArrowWriter:
                          object_store=None,
                          messaging=mock_kafka)
 
-        mock_transformer = mocker.MagicMock(NanoAODTransformer)
+        mock_transformer = mocker.MagicMock(UprootTransformer)
         mock_transformer.file_path = '/tmp/foo'
         mock_transformer.chunk_size = 100
         mock_transformer.attr_name_list = ['a', 'b']
@@ -165,7 +165,7 @@ class TestArrowWriter:
                          object_store=None,
                          messaging=None)
 
-        mock_transformer = mocker.MagicMock(NanoAODTransformer)
+        mock_transformer = mocker.MagicMock(UprootTransformer)
         mock_transformer.file_path = '/tmp/foo'
         mock_transformer.chunk_size = 100
         mock_transformer.attr_name_list = ['a', 'b']

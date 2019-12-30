@@ -3,7 +3,13 @@
 [![Build Status](https://travis-ci.org/ssl-hep/ServiceX_transformer.svg?branch=pytest)](https://travis-ci.org/ssl-hep/ServiceX_transformer)
 [![codecov](https://codecov.io/gh/ssl-hep/ServiceX_transformer/branch/master/graph/badge.svg)](https://codecov.io/gh/ssl-hep/ServiceX_transformer)
 
+Library of common classes for building serviceX transformers. Also contains
+code for legacy transformer images.
 
+To use this library:
+```bash
+pip install servicex-transformer
+```
 Allows a user to extract columns from a Root file. There are two supported 
 transformers available in this repo:
 1. xaod_transformer - Uses pyroot to extract data from xAOD files
@@ -37,14 +43,14 @@ transforming ROOT files.
 You can launch a container with an X509 proxy mounted in a docker volume as:
 
 ```bash
-docker run --rm 
-    --mount type=bind,source=$HOME/.globus,readonly,target=/etc/grid-certs 
-    --mount type=bind,source="$(pwd)"/secrets/secrets.txt,target=/servicex/secrets.txt 
-    --mount type=volume,source=x509,target=/etc/grid-security 
+docker run --rm \
+    --mount type=bind,source=$HOME/.globus,readonly,target=/etc/grid-certs \
+    --mount type=bind,source="$(pwd)"/secrets/secrets.txt,target=/servicex/secrets.txt \
+    --mount type=volume,source=x509,target=/etc/grid-security \
     --name=x509-secrets sslhep/x509-secrets:latest
     
 
-docker run --rm -it \                                                                                                     
+docker run --rm -it \
     --mount type=volume,source=x509,target=/etc/grid-security-ro \
     sslhep/servicex-transformer:develop bash  
 ```

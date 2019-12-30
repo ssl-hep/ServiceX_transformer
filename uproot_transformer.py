@@ -31,9 +31,9 @@ import json
 
 from servicex.transformer.transformer_argument_parser import TransformerArgumentParser
 from servicex.transformer.kafka_messaging import KafkaMessaging
-from servicex.transformer.nanoaod_transformer import NanoAODTransformer
+from servicex.transformer.uproot_transformer import UprootTransformer
 from servicex.transformer.object_store_manager import ObjectStoreManager
-from servicex.transformer.nanoaod_events import NanoAODEvents
+from servicex.transformer.uproot_events import UprootEvents
 from servicex.transformer.arrow_writer import ArrowWriter
 from servicex.transformer.servicex_adapter import ServiceXAdapter
 
@@ -73,8 +73,8 @@ def callback(channel, method, properties, body):
 
     print(_file_path)
     try:
-        event_iterator = NanoAODEvents(_file_path, _tree_name, columns, chunk_size)
-        transformer = NanoAODTransformer(event_iterator)
+        event_iterator = UprootEvents(_file_path, _tree_name, columns, chunk_size)
+        transformer = UprootTransformer(event_iterator)
 
         arrow_writer.write_branches_to_arrow(transformer=transformer, topic_name=_request_id,
                                              file_id=_file_id,
@@ -99,9 +99,9 @@ def transform_single_file(file_path, tree, attr_list, chunk_size):
                                servicex=None,
                                object_store=object_store, messaging=messaging)
 
-    event_iterator = NanoAODEvents(file_path=file_path, tree_name=tree,
-                                   attr_name_list=attr_list, chunk_size=chunk_size)
-    transformer = NanoAODTransformer(event_iterator)
+    event_iterator = UprootEvents(file_path=file_path, tree_name=tree,
+                                  attr_name_list=attr_list, chunk_size=chunk_size)
+    transformer = UprootTransformer(event_iterator)
 
     arrow_writer.write_branches_to_arrow(transformer=transformer,
                                          topic_name=args.topic,

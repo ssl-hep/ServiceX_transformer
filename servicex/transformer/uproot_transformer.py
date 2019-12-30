@@ -28,7 +28,7 @@
 import awkward
 
 
-class NanoAODTransformer:
+class UprootTransformer:
     def __init__(self, event_iterator):
         self.event_iterator = event_iterator
 

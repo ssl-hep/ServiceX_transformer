@@ -75,11 +75,15 @@ class TransformerArgumentParser(argparse.ArgumentParser):
         self.add_argument('--result-destination', dest='result_destination',
                           action='store',
                           default='kafka', help='kafka, object-store',
-                          choices=['kafka', 'object-store'])
+                          choices=['kafka', 'object-store', 'output-dir'])
+
+        self.add_argument('--output-dir', dest='output_dir',
+                          action='store',
+                          default=None, help='Local directory to output results')
 
         self.add_argument('--result-format', dest='result_format', action='store',
-                          default='arrow', help='arrow, parquet',
-                          choices=['arrow', 'parquet'])
+                          default='arrow', help='arrow, parquet, root-file',
+                          choices=['arrow', 'parquet', 'root-file'])
 
         self.add_argument("--max-message-size", dest='max_message_size',
                           action='store', default=default_max_message_size,

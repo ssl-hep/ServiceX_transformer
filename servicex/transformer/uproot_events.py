@@ -38,7 +38,7 @@ def _parse_column_name(attr):
     return tree_name, branch_name
 
 
-class NanoAODEvents:
+class UprootEvents:
 
     def __init__(self, file_path, tree_name, attr_name_list, chunk_size, event_limit=None):
 
