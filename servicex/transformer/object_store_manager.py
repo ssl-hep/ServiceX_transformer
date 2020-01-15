@@ -25,14 +25,21 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import os
 
 
 class ObjectStoreManager:
 
-    def __init__(self, url, username, password):
+    def __init__(self, url=None, username=None, password=None):
         from minio import Minio
-        self.minio_client = Minio(endpoint=url, access_key=username,
-                                  secret_key=password, secure=False)
+
+        self.minio_client = Minio(endpoint=url if url else os.environ[
+                                      'MINIO_URL'],
+                                  access_key=username if username else os.environ[
+                                      'MINIO_ACCESS_KEY'],
+                                  secret_key=password if password else os.environ[
+                                      'MINIO_SECRET_KEY'],
+                                  secure=False)
 
     def upload_file(self, bucket, object_name, path):
         self.minio_client.fput_object(bucket_name=bucket,

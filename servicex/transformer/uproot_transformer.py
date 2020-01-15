@@ -25,39 +25,28 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import os
-
-from servicex.transformer.object_store_manager import ObjectStoreManager
+import awkward
 
 
-class TestObjectStoreManager:
-    def test_init(self, mocker):
-        mock_minio = mocker.patch('minio.Minio')
-        ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'foo'
-        assert called_config['secret_key'] == 'bar'
-        assert not called_config['secure']
+class UprootTransformer:
+    def __init__(self, event_iterator):
+        self.event_iterator = event_iterator
 
-    def test_init_from_env(self, mocker):
-        os.environ['MINIO_URL'] = 'localhost:9999'
-        os.environ['MINIO_ACCESS_KEY'] = 'test'
-        os.environ['MINIO_SECRET_KEY'] = 'shhh'
-        mock_minio = mocker.patch('minio.Minio')
+    @property
+    def file_path(self):
+        return self.event_iterator.file_path
 
-        ObjectStoreManager()
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'test'
-        assert called_config['secret_key'] == 'shhh'
-        assert not called_config['secure']
+    @property
+    def attr_name_list(self):
+        return self.event_iterator.attr_name_list
 
-    def test_upload_file(self, mocker):
-        import minio
-        mock_minio = mocker.MagicMock(minio.api.Minio)
-        mock_minio.fput_object = mocker.Mock()
-        mocker.patch('minio.Minio', return_value=mock_minio)
-        result = ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        result.upload_file("my-bucket", "foo.txt", "/tmp/foo.txt")
-        mock_minio.fput_object.assert_called()
+    @property
+    def chunk_size(self):
+        return self.event_iterator.chunk_size
+
+    def arrow_table(self):
+        for object_array in self.event_iterator.iterate():
+            unicode_array = {}
+            for key in object_array.keys():
+                unicode_array[key.decode('UTF8')] = object_array[key]
+            yield awkward.toarrow(awkward.Table(unicode_array))

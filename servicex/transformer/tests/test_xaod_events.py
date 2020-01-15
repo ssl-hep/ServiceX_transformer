@@ -46,8 +46,9 @@ class TestXAODEvents:
         return obj
 
     def test_get_entry_count(self, mocker):
-        import ROOT
         import mock
+        import ROOT
+
         from servicex.transformer.xaod_events import XAODEvents
 
         attr_names = [
@@ -56,13 +57,17 @@ class TestXAODEvents:
 
         mock_tree = mock.Mock()
         xaod_mock = mocker.patch.object(ROOT, "xAOD")
+        mock_file = mock.Mock()
+        mocker.patch.object(ROOT.TFile, 'Open',
+                                        return_value=mock_file)
         xaod_mock.MakeTransientTree = mock.Mock(return_value=mock_tree)
 
         mock_tree.GetEntries = mock.Mock(return_value=2)
         mock_tree.GetEntry = mock.Mock()
-        event_iterator = XAODEvents("foo/bar", attr_names)
+        event_iterator = XAODEvents("foo/bar", attr_names, chunk_size=100, event_limit=None)
 
         assert event_iterator.get_entry_count() == 2
+        xaod_mock.MakeTransientTree.assert_called()
 
     def test_event_iter_no_limit(self, mocker):
         import ROOT
@@ -82,7 +87,7 @@ class TestXAODEvents:
         xaod_mock = mocker.patch.object(ROOT, "xAOD")
         xaod_mock.MakeTransientTree = mock.Mock(return_value=mock_tree)
 
-        event_iterator = XAODEvents("foo/bar", attr_names)
+        event_iterator = XAODEvents("foo/bar", attr_names, chunk_size=100, event_limit=None)
 
         mock_tree.GetEntries = mock.Mock(return_value=2)
         mock_tree.GetEntry = mock.Mock()
@@ -136,6 +141,7 @@ class TestXAODEvents:
 
         with pytest.raises(StopIteration):
             array_gen.next()
+        xaod_mock.MakeTransientTree.assert_called()
 
     def test_chunksize_greater_than_events(self, mocker):
         assert True

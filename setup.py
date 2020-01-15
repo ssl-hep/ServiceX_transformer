@@ -25,39 +25,52 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import os
+import setuptools
 
-from servicex.transformer.object_store_manager import ObjectStoreManager
+with open("README.md", "r") as fh:
+    long_description = fh.read()
 
+setuptools.setup(
+    name='servicex-transformer',
+    packages=setuptools.find_packages(),
+    version='0.2',
+    license='bsd 3 clause',
+    description='ServiceX Data Transformer for HEP Data',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
 
-class TestObjectStoreManager:
-    def test_init(self, mocker):
-        mock_minio = mocker.patch('minio.Minio')
-        ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'foo'
-        assert called_config['secret_key'] == 'bar'
-        assert not called_config['secure']
+    author='Ben Galewsky',
+    author_email='bengal1@illinois.edu',
+    url='https://github.com/ssl-hep/ServiceX_transformer',
+    keywords=['HEP', 'Data Engineering', 'Data Lake'],
+    install_requires=[
+        'uproot',
+        'awkward >= 0.12.0',
+        'xxhash',
+        'lz4',
+        'requests >= 2.22.0',
+        'pyarrow',
+        'kafka',
+        'confluent_kafka == 1.2.0',
+        'pympler',
+        'pika',
+        'minio '
+    ],
 
-    def test_init_from_env(self, mocker):
-        os.environ['MINIO_URL'] = 'localhost:9999'
-        os.environ['MINIO_ACCESS_KEY'] = 'test'
-        os.environ['MINIO_SECRET_KEY'] = 'shhh'
-        mock_minio = mocker.patch('minio.Minio')
+    extras_require={
+        'test': ['flake8==3.5',
+                 'coverage==4.5.2',
+                 'codecov==2.0.15'],
+    },
 
-        ObjectStoreManager()
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'test'
-        assert called_config['secret_key'] == 'shhh'
-        assert not called_config['secure']
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',
+        'Topic :: Software Development :: Build Tools',
+        'License :: OSI Approved :: BSD License',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+    ],
+    python_requires='>=2.7',
 
-    def test_upload_file(self, mocker):
-        import minio
-        mock_minio = mocker.MagicMock(minio.api.Minio)
-        mock_minio.fput_object = mocker.Mock()
-        mocker.patch('minio.Minio', return_value=mock_minio)
-        result = ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        result.upload_file("my-bucket", "foo.txt", "/tmp/foo.txt")
-        mock_minio.fput_object.assert_called()
+)

@@ -63,8 +63,9 @@ class TestXAODTransformer:
 
         iterator.attr_name_list = attr_names
         iterator.get_entry_count = mock.Mock(return_value=1000)
+        iterator.chunk_size = 2
         transformer = XAODTransformer(iterator)
-        table = transformer.arrow_table(2, 100).next()
+        table = transformer.arrow_table().next()
 
         assert table.column_names == ['Electrons_pt',
                                       'Muons_e',
@@ -82,27 +83,4 @@ class TestXAODTransformer:
             ('Electrons_eta', [[5.0, 10.0], [15.0, 20.0]])
         ])
 
-        iterator.iterate.assert_called_with(100)
-
-    def test_empty_array(self, mocker):
-        import mock
-        from servicex.transformer.xaod_transformer import XAODTransformer
-
-        attr_names = [
-            'Electrons.pt()', 'Electrons.eta()', 'Muons.phi()', 'Muons.e()'
-        ]
-
-        from servicex.transformer.xaod_events import XAODEvents
-        iterator = mock.MagicMock(XAODEvents)
-        iterator.iterate = mock.Mock(return_value=iter([
-            {}  # Empty array
-        ]))
-
-        iterator.attr_name_list = attr_names
-        iterator.get_entry_count = mock.Mock(return_value=1000)
-        transformer = XAODTransformer(iterator)
-        table = transformer.arrow_table(0, 100).next()
-
-        print table.column_names
-
-        assert len(table) == 0
+        iterator.iterate.assert_called()

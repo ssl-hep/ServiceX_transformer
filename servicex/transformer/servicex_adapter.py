@@ -25,39 +25,34 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import os
+import datetime
+import requests
 
-from servicex.transformer.object_store_manager import ObjectStoreManager
 
+class ServiceXAdapter:
+    def __init__(self, servicex_endpoint):
+        self.server_endpoint = servicex_endpoint
 
-class TestObjectStoreManager:
-    def test_init(self, mocker):
-        mock_minio = mocker.patch('minio.Minio')
-        ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'foo'
-        assert called_config['secret_key'] == 'bar'
-        assert not called_config['secure']
+    def post_status_update(self, status_msg):
+        requests.post(self.server_endpoint + "/status", data={
+            "timestamp": datetime.datetime.now().isoformat(),
+            "status": status_msg
+        })
 
-    def test_init_from_env(self, mocker):
-        os.environ['MINIO_URL'] = 'localhost:9999'
-        os.environ['MINIO_ACCESS_KEY'] = 'test'
-        os.environ['MINIO_SECRET_KEY'] = 'shhh'
-        mock_minio = mocker.patch('minio.Minio')
-
-        ObjectStoreManager()
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'test'
-        assert called_config['secret_key'] == 'shhh'
-        assert not called_config['secure']
-
-    def test_upload_file(self, mocker):
-        import minio
-        mock_minio = mocker.MagicMock(minio.api.Minio)
-        mock_minio.fput_object = mocker.Mock()
-        mocker.patch('minio.Minio', return_value=mock_minio)
-        result = ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        result.upload_file("my-bucket", "foo.txt", "/tmp/foo.txt")
-        mock_minio.fput_object.assert_called()
+    def put_file_complete(self, file_path, file_id, status,
+                          num_messages=None, total_time=None, total_events=None,
+                          total_bytes=None):
+        avg_rate = 0 if not total_time else total_events / total_time
+        doc = {
+            "file-path": file_path,
+            "file-id": file_id,
+            "status": status,
+            "num-messages": num_messages,
+            "total-time": total_time,
+            "total-events": total_events,
+            "total-bytes": total_bytes,
+            "avg-rate": avg_rate
+        }
+        print("------< ", doc)
+        if self.server_endpoint:
+            requests.put(self.server_endpoint + "/file-complete", json=doc)
