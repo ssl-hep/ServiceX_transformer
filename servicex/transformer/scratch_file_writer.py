@@ -27,37 +27,27 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import os
 
-from servicex.transformer.object_store_manager import ObjectStoreManager
+import pyarrow.parquet as pq
 
 
-class TestObjectStoreManager:
-    def test_init(self, mocker):
-        mock_minio = mocker.patch('minio.Minio')
-        ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'foo'
-        assert called_config['secret_key'] == 'bar'
-        assert not called_config['secure']
+class ScratchFileWriter:
+    def __init__(self, file_format):
+        self.file_format = file_format
+        self.scratch_file = None
+        self.file_path = '/tmp/out'
 
-    def test_init_from_env(self, mocker):
-        os.environ['MINIO_URL'] = 'localhost:9999'
-        os.environ['MINIO_ACCESS_KEY'] = 'test'
-        os.environ['MINIO_SECRET_KEY'] = 'shhh'
-        mock_minio = mocker.patch('minio.Minio')
+    def open_scratch_file(self, pa_table):
+        if self.file_format == 'parquet':
+            self.scratch_file = pq.ParquetWriter(self.file_path, pa_table.schema)
 
-        ObjectStoreManager()
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'test'
-        assert called_config['secret_key'] == 'shhh'
-        assert not called_config['secure']
+    def append_table_to_scratch(self, pa_table):
+        if self.file_format == 'parquet':
+            self.scratch_file.write_table(table=pa_table)
 
-    def test_upload_file(self, mocker):
-        import minio
-        mock_minio = mocker.MagicMock(minio.api.Minio)
-        mock_minio.fput_object = mocker.Mock()
-        mocker.patch('minio.Minio', return_value=mock_minio)
-        result = ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        result.upload_file("my-bucket", "foo.txt", "/tmp/foo.txt")
-        mock_minio.fput_object.assert_called()
+    def close_scratch_file(self):
+        if self.file_format == 'parquet':
+            self.scratch_file.close()
+            self.scratch_file = None
+
+    def remove_scratch_file(self):
+        os.remove(self.file_path)

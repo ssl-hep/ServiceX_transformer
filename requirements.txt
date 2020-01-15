@@ -1,8 +1,11 @@
-awkward==0.10.2
-requests
+uproot
+awkward>=0.12.0
+xxhash
+lz4
+requests>=2.22.0
 pyarrow
 kafka
-confluent_kafka
+confluent_kafka==1.2.0
 pympler
 pika
 minio

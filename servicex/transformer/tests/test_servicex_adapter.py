@@ -25,39 +25,33 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import os
-
-from servicex.transformer.object_store_manager import ObjectStoreManager
+from servicex.transformer.servicex_adapter import ServiceXAdapter
 
 
-class TestObjectStoreManager:
-    def test_init(self, mocker):
-        mock_minio = mocker.patch('minio.Minio')
-        ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'foo'
-        assert called_config['secret_key'] == 'bar'
-        assert not called_config['secure']
+class TestServiceXAdapter:
 
-    def test_init_from_env(self, mocker):
-        os.environ['MINIO_URL'] = 'localhost:9999'
-        os.environ['MINIO_ACCESS_KEY'] = 'test'
-        os.environ['MINIO_SECRET_KEY'] = 'shhh'
-        mock_minio = mocker.patch('minio.Minio')
+    def test_put_file_complete(self, mocker):
+        mock_requests_put = mocker.patch('requests.put')
+        adapter = ServiceXAdapter("http://foo.com")
+        adapter.put_file_complete("my-root.root", 42, "testing", 1, 2, 3, 4)
+        mock_requests_put.assert_called()
+        args = mock_requests_put.call_args
+        assert args[0][0] == 'http://foo.com/file-complete'
+        doc = args[1]['json']
+        assert doc['status'] == 'testing'
+        assert doc['total-events'] == 3
+        assert doc['total-time'] == 2
+        assert doc['file-path'] == 'my-root.root'
+        assert doc['num-messages'] == 1
+        assert doc['file-id'] == 42
+        assert doc['avg-rate'] == 1
 
-        ObjectStoreManager()
-        called_config = mock_minio.call_args[1]
-        assert called_config['endpoint'] == 'localhost:9999'
-        assert called_config['access_key'] == 'test'
-        assert called_config['secret_key'] == 'shhh'
-        assert not called_config['secure']
-
-    def test_upload_file(self, mocker):
-        import minio
-        mock_minio = mocker.MagicMock(minio.api.Minio)
-        mock_minio.fput_object = mocker.Mock()
-        mocker.patch('minio.Minio', return_value=mock_minio)
-        result = ObjectStoreManager('localhost:9999', 'foo', 'bar')
-        result.upload_file("my-bucket", "foo.txt", "/tmp/foo.txt")
-        mock_minio.fput_object.assert_called()
+    def test_post_status_update(self, mocker):
+        mock_requests_post = mocker.patch('requests.post')
+        adapter = ServiceXAdapter("http://foo.com")
+        adapter.post_status_update("testing")
+        mock_requests_post.assert_called()
+        args = mock_requests_post.call_args
+        assert args[0][0] == 'http://foo.com/status'
+        doc = args[1]['data']
+        assert doc['status'] == 'testing'
