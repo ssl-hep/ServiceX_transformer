@@ -40,7 +40,7 @@ class ArrowWriter:
 
     def write_branches_to_arrow(self, transformer,
                                 topic_name, file_id, request_id):
-        from scratch_file_writer import ScratchFileWriter
+        from .scratch_file_writer import ScratchFileWriter
 
         tick = time.time()
 
@@ -62,7 +62,7 @@ class ArrowWriter:
 
             for batch in batches:
                 if self.messaging:
-                    key = transformer.file_path + "-" + str(batch_number)
+                    key = str.encode(transformer.file_path + "-" + str(batch_number))
 
                     sink = pa.BufferOutputStream()
                     writer = pa.RecordBatchStreamWriter(sink, batch.schema)

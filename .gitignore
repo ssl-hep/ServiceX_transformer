@@ -3,4 +3,6 @@ secrets
 __pycache__/
 *.pyc
 .coverage
-
+build/
+dist/
+servicex_transformer.egg-info/
