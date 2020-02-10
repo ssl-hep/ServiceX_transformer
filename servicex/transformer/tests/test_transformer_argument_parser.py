@@ -46,7 +46,6 @@ class TestTransformerArgumentParser:
                     "--topic", "mytopic",
                     "--chunks", "100",
                     "--tree", "Events",
-                    "--attrs", "a,b,c",
                     "--limit", "10",
                     '--result-destination', 'kafka',
                     '--result-format', 'arrow',
@@ -61,7 +60,6 @@ class TestTransformerArgumentParser:
         assert args.topic == 'mytopic'
         assert args.chunks == 100
         assert args.tree == 'Events'
-        assert args.attr_names == 'a,b,c'
         assert args.limit == 10
         assert args.result_destination == 'kafka'
         assert args.result_format == 'arrow'
