@@ -2,6 +2,7 @@ secrets
 .idea/
 __pycache__/
 *.pyc
+.cache/
 .coverage
 build/
 dist/

@@ -27,14 +27,19 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 from collections import OrderedDict
 
-from mock import call
-
 from servicex.transformer.arrow_writer import ArrowWriter
 from servicex.transformer.object_store_manager import ObjectStoreManager
 from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.uproot_transformer import UprootTransformer
 import pyarrow as pa
 from servicex.transformer.servicex_adapter import ServiceXAdapter
+
+# Mock module moved in python 3.3
+import sys
+if sys.version_info >= (3, 3):
+    from unittest.mock import call  # noqa: E402
+else:
+    from mock import call  # noqa: E402
 
 
 class TestArrowWriter:
@@ -140,7 +145,7 @@ class TestArrowWriter:
         assert len(kafka_calls) == 2
         topic, key, py_arrow_buffer = kafka_calls[0][0]
         assert topic == 'servicex'
-        assert key == '/tmp/foo-0'
+        assert key == b'/tmp/foo-0'
 
         reader = pa.RecordBatchStreamReader(py_arrow_buffer)
         table = reader.read_all()
