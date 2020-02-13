@@ -42,7 +42,7 @@ class ServiceXAdapter:
     def put_file_complete(self, file_path, file_id, status,
                           num_messages=None, total_time=None, total_events=None,
                           total_bytes=None):
-        avg_rate = 0 if not total_time else total_events / total_time
+        avg_rate = 0 if not total_time else int(total_events / total_time)
         doc = {
             "file-path": file_path,
             "file-id": file_id,

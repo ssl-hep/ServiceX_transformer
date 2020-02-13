@@ -60,10 +60,6 @@ class TransformerArgumentParser(argparse.ArgumentParser):
                           default="Events",
                           help='Tree from which columns will be inspected')
 
-        self.add_argument("--attrs", dest='attr_names', action='store',
-                          default=default_attr_names,
-                          help='List of attributes to extract')
-
         self.add_argument("--path", dest='path', action='store',
                           default=None,
                           help='Path to single Root file to transform')
@@ -74,7 +70,7 @@ class TransformerArgumentParser(argparse.ArgumentParser):
 
         self.add_argument('--result-destination', dest='result_destination',
                           action='store',
-                          default='kafka', help='kafka, object-store',
+                          default='kafka', help='kafka, object-store, output-dir',
                           choices=['kafka', 'object-store', 'output-dir'])
 
         self.add_argument('--output-dir', dest='output_dir',
