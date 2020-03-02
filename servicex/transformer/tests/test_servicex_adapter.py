@@ -30,12 +30,28 @@ from servicex.transformer.servicex_adapter import ServiceXAdapter
 
 class TestServiceXAdapter:
 
+    def test_init(self, mocker):
+        import requests
+        mock_session = mocker.MagicMock(requests.session)
+        mocker.patch('requests.session', return_value=mock_session)
+        mock_session.mount = mocker.Mock()
+        ServiceXAdapter("http://foo.com")
+        retries = mock_session.mount.mock_calls[0][1][1].max_retries
+        assert retries.total == 5
+        assert retries.connect == 3
+
     def test_put_file_complete(self, mocker):
-        mock_requests_put = mocker.patch('requests.put')
+        import requests
+
+        mock_session = mocker.MagicMock(requests.session)
+        mock_session.mount = mocker.Mock()
+        mock_session.put = mocker.Mock()
+        mocker.patch('requests.session', return_value=mock_session)
+
         adapter = ServiceXAdapter("http://foo.com")
         adapter.put_file_complete("my-root.root", 42, "testing", 1, 2, 3, 4)
-        mock_requests_put.assert_called()
-        args = mock_requests_put.call_args
+        mock_session.put.assert_called()
+        args = mock_session.put.call_args
         assert args[0][0] == 'http://foo.com/file-complete'
         doc = args[1]['json']
         assert doc['status'] == 'testing'
@@ -47,11 +63,21 @@ class TestServiceXAdapter:
         assert doc['avg-rate'] == 1
 
     def test_post_status_update(self, mocker):
-        mock_requests_post = mocker.patch('requests.post')
+        import requests
+        import os
+        mocker.patch.dict(os.environ, {"POD_NAME": "my-pod"})
+
+        mock_session = mocker.MagicMock(requests.session)
+        mock_session.mount = mocker.Mock()
+        mock_session.post = mocker.Mock()
+        mocker.patch('requests.session', return_value=mock_session)
+
         adapter = ServiceXAdapter("http://foo.com")
-        adapter.post_status_update("testing")
-        mock_requests_post.assert_called()
-        args = mock_requests_post.call_args
-        assert args[0][0] == 'http://foo.com/status'
+        adapter.post_status_update(42, "testing", "this is a test")
+        mock_session.post.assert_called()
+        args = mock_session.post.call_args
+        assert args[0][0] == 'http://foo.com/42/status'
         doc = args[1]['data']
-        assert doc['status'] == 'testing'
+        assert doc['status-code'] == 'testing'
+        assert doc['info'] == 'this is a test'
+        assert doc['pod-name'] == 'my-pod'
