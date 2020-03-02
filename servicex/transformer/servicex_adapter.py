@@ -27,16 +27,27 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import datetime
 import requests
+import os
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 
 
 class ServiceXAdapter:
     def __init__(self, servicex_endpoint):
         self.server_endpoint = servicex_endpoint
+        self.session = requests.session()
 
-    def post_status_update(self, status_msg):
-        requests.post(self.server_endpoint + "/status", data={
+        retries = Retry(total=5,
+                        connect=3,
+                        backoff_factor=0.1)
+        self.session.mount('http://', HTTPAdapter(max_retries=retries))
+
+    def post_status_update(self, file_id, status_code, info):
+        self.session.post(self.server_endpoint + "/" + str(file_id) + "/status", data={
             "timestamp": datetime.datetime.now().isoformat(),
-            "status": status_msg
+            "status-code": status_code,
+            "pod-name": os.environ['POD_NAME'],
+            "info": info
         })
 
     def put_file_complete(self, file_path, file_id, status,
@@ -55,4 +66,4 @@ class ServiceXAdapter:
         }
         print("------< ", doc)
         if self.server_endpoint:
-            requests.put(self.server_endpoint + "/file-complete", json=doc)
+            self.session.put(self.server_endpoint + "/file-complete", json=doc)

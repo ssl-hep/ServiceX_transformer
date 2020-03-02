@@ -31,10 +31,8 @@ import pyarrow as pa
 
 class ArrowWriter:
 
-    def __init__(self, file_format=None, servicex=None,
-                 object_store=None, messaging=None):
+    def __init__(self, file_format=None, object_store=None, messaging=None):
         self.file_format = file_format
-        self.servicex = servicex
         self.object_store = object_store
         self.messaging = messaging
 
@@ -99,14 +97,5 @@ class ArrowWriter:
 
             scratch_writer.remove_scratch_file()
 
-        if self.servicex:
-            self.servicex. post_status_update("File " + transformer.file_path + " complete")
-
         tock = time.time()
         print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")
-        if self.servicex:
-            self.servicex.put_file_complete(transformer.file_path, file_id, "success",
-                                            num_messages=batch_number,
-                                            total_time=round(tock - tick / 60.0, 2),
-                                            total_events=total_events,
-                                            total_bytes=total_bytes)
