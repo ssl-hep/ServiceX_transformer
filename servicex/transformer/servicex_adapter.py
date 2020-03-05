@@ -43,12 +43,24 @@ class ServiceXAdapter:
         self.session.mount('http://', HTTPAdapter(max_retries=retries))
 
     def post_status_update(self, file_id, status_code, info):
-        self.session.post(self.server_endpoint + "/" + str(file_id) + "/status", data={
-            "timestamp": datetime.datetime.now().isoformat(),
-            "status-code": status_code,
-            "pod-name": os.environ['POD_NAME'],
-            "info": info
-        })
+        success = False
+        attempts = 0
+        while not success and attempts < 3:
+            try:
+                self.session.post(self.server_endpoint + "/" + str(file_id) + "/status",
+                                  data={
+                                      "timestamp": datetime.datetime.now().isoformat(),
+                                      "status-code": status_code,
+                                      "pod-name": os.environ['POD_NAME'],
+                                      "info": info
+                                  })
+                success = True
+            except requests.exceptions.ConnectionError:
+                print("Connection err. Retry")
+                attempts += 1
+        if not success:
+            print("******** Failed to write status message")
+            print("******** Continuing")
 
     def put_file_complete(self, file_path, file_id, status,
                           num_messages=None, total_time=None, total_events=None,
@@ -65,5 +77,17 @@ class ServiceXAdapter:
             "avg-rate": avg_rate
         }
         print("------< ", doc)
+
         if self.server_endpoint:
-            self.session.put(self.server_endpoint + "/file-complete", json=doc)
+            success = False
+            attempts = 0
+            while not success and attempts < 3:
+                try:
+                    self.session.put(self.server_endpoint + "/file-complete", json=doc)
+                    success = True
+                except requests.exceptions.ConnectionError:
+                    print("Connection err. Retry")
+                    attempts += 1
+            if not success:
+                print("******** Failed to write file complete message")
+                print("******** Continuing")
