@@ -33,7 +33,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='servicex-transformer',
     packages=setuptools.find_packages(),
-    version='0.4.1',
+    version='0.4.2',
     license='bsd 3 clause',
     description='ServiceX Data Transformer for HEP Data',
     long_description=long_description,
@@ -51,7 +51,8 @@ setuptools.setup(
         'numpy == 1.16.6',
         'kafka-python',
         'pika',
-        'minio '
+        'minio',
+        'retry == 0.9.2'
     ],
 
     extras_require={

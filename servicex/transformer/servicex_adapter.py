@@ -28,8 +28,13 @@
 import datetime
 import requests
 import os
+
+from retry.api import retry_call
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
+
+MAX_RETRIES = 3
+RETRY_DELAY = 2
 
 
 class ServiceXAdapter:
@@ -43,24 +48,22 @@ class ServiceXAdapter:
         self.session.mount('http://', HTTPAdapter(max_retries=retries))
 
     def post_status_update(self, file_id, status_code, info):
-        success = False
-        attempts = 0
-        while not success and attempts < 3:
-            try:
-                self.session.post(self.server_endpoint + "/" + str(file_id) + "/status",
-                                  data={
-                                      "timestamp": datetime.datetime.now().isoformat(),
-                                      "status-code": status_code,
-                                      "pod-name": os.environ['POD_NAME'],
-                                      "info": info
-                                  })
-                success = True
-            except requests.exceptions.ConnectionError:
-                print("Connection err. Retry")
-                attempts += 1
-        if not success:
-            print("******** Failed to write status message")
-            print("******** Continuing")
+        doc = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "status-code": status_code,
+            "pod-name": os.environ['POD_NAME'],
+            "info": info
+        }
+
+        try:
+            retry_call(self.session.post,
+                       fargs=[self.server_endpoint + "/" + str(file_id) + "/status"],
+                       fkwargs={"data": doc},
+                       tries=MAX_RETRIES,
+                       delay=RETRY_DELAY)
+        except requests.exceptions.ConnectionError:
+            print("*************** Unrecoverable Error ***************")
+            print("Connection Error in post_status_update")
 
     def put_file_complete(self, file_path, file_id, status,
                           num_messages=None, total_time=None, total_events=None,
@@ -79,15 +82,12 @@ class ServiceXAdapter:
         print("------< ", doc)
 
         if self.server_endpoint:
-            success = False
-            attempts = 0
-            while not success and attempts < 3:
-                try:
-                    self.session.put(self.server_endpoint + "/file-complete", json=doc)
-                    success = True
-                except requests.exceptions.ConnectionError:
-                    print("Connection err. Retry")
-                    attempts += 1
-            if not success:
-                print("******** Failed to write file complete message")
-                print("******** Continuing")
+            try:
+                retry_call(self.session.put,
+                           fargs=[self.server_endpoint + "/file-complete"],
+                           fkwargs={"json": doc},
+                           tries=MAX_RETRIES,
+                           delay=RETRY_DELAY)
+            except requests.exceptions.ConnectionError:
+                print("*************** Unrecoverable Error ***************")
+                print("Connection Error in put_file_complete")
