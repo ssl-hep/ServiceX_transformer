@@ -62,6 +62,18 @@ class TestServiceXAdapter:
         assert doc['file-id'] == 42
         assert doc['avg-rate'] == 1
 
+    def test_put_file_complete_retry(self, mocker):
+        import requests
+
+        mock_session = mocker.MagicMock(requests.session)
+        mock_session.mount = mocker.Mock()
+        mock_session.put = mocker.Mock(side_effect=[requests.exceptions.ConnectionError, 200])
+        mocker.patch('requests.session', return_value=mock_session)
+
+        adapter = ServiceXAdapter("http://foo.com")
+        adapter.put_file_complete("my-root.root", 42, "testing", 1, 2, 3, 4)
+        assert mock_session.put.call_count == 2
+
     def test_post_status_update(self, mocker):
         import requests
         import os
@@ -81,3 +93,18 @@ class TestServiceXAdapter:
         assert doc['status-code'] == 'testing'
         assert doc['info'] == 'this is a test'
         assert doc['pod-name'] == 'my-pod'
+
+    def test_post_status_update_retry(self, mocker):
+        import requests
+        import os
+        mocker.patch.dict(os.environ, {"POD_NAME": "my-pod"})
+
+        mock_session = mocker.MagicMock(requests.session)
+        mock_session.mount = mocker.Mock()
+        mock_session.post = mocker.Mock(
+            side_effect=[requests.exceptions.ConnectionError, 200])
+        mocker.patch('requests.session', return_value=mock_session)
+
+        adapter = ServiceXAdapter("http://foo.com")
+        adapter.post_status_update(42, "testing", "this is a test")
+        assert mock_session.post.call_count == 2
