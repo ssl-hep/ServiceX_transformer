@@ -35,6 +35,8 @@ class ArrowWriter:
         self.file_format = file_format
         self.object_store = object_store
         self.messaging = messaging
+        self.messaging_timings = []
+        self.object_store_timing = 0
 
     def write_branches_to_arrow(self, transformer,
                                 topic_name, file_id, request_id):
@@ -60,6 +62,7 @@ class ArrowWriter:
 
             for batch in batches:
                 if self.messaging:
+                    messaging_tick = time.time()
                     key = str.encode(transformer.file_path + "-" + str(batch_number))
 
                     sink = pa.BufferOutputStream()
@@ -80,12 +83,14 @@ class ArrowWriter:
                           " events published to " + topic_name,
                           "Avg Cell Size = " + str(avg_cell_size) + " bytes")
                     batch_number += 1
+                    self.messaging_timings.append(time.time() - messaging_tick)
 
                     # if server_endpoint:
                     #     post_status_update(server_endpoint, "Processed " +
                     #                        str(batch.num_rows))
 
         if self.object_store:
+            object_store_tick = time.time()
             scratch_writer.close_scratch_file()
 
             print("Writing parquet to ", request_id, " as ",
@@ -96,6 +101,7 @@ class ArrowWriter:
                                           scratch_writer.file_path)
 
             scratch_writer.remove_scratch_file()
+            self.object_store_timing = time.time() - object_store_tick
 
         tock = time.time()
         print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")
