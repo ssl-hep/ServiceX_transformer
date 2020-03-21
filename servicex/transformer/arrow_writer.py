@@ -37,18 +37,16 @@ class ArrowWriter:
         self.messaging = messaging
         self.messaging_timings = []
         self.object_store_timing = 0
+        self.avg_cell_size = []
 
     def write_branches_to_arrow(self, transformer,
                                 topic_name, file_id, request_id):
         from .scratch_file_writer import ScratchFileWriter
 
         tick = time.time()
-
         scratch_writer = None
+        total_messages = 0
 
-        batch_number = 0
-        total_events = 0
-        total_bytes = 0
         for pa_table in transformer.arrow_table():
             if self.object_store:
                 if not scratch_writer:
@@ -57,14 +55,14 @@ class ArrowWriter:
 
                 scratch_writer.append_table_to_scratch(pa_table)
 
-            total_events = total_events + pa_table.num_rows
-
             if self.messaging:
                 batches = pa_table.to_batches(max_chunksize=transformer.chunk_size)
 
                 for batch in batches:
                     messaging_tick = time.time()
-                    key = str.encode(transformer.file_path + "-" + str(batch_number))
+
+                    # Just need to make key unique to shard messages across brokers
+                    key = str.encode(transformer.file_path + "-" + str(total_messages))
 
                     sink = pa.BufferOutputStream()
                     writer = pa.RecordBatchStreamWriter(sink, batch.schema)
@@ -75,15 +73,10 @@ class ArrowWriter:
                         key,
                         sink.getvalue())
 
-                    total_bytes = total_bytes + len(sink.getvalue().to_pybytes())
-
-                    avg_cell_size = len(sink.getvalue().to_pybytes()) / len(
-                        transformer.attr_name_list) / batch.num_rows
-                    print("Batch number " + str(batch_number) + ", "
-                          + str(batch.num_rows) +
-                          " events published to " + topic_name,
-                          "Avg Cell Size = " + str(avg_cell_size) + " bytes")
-                    batch_number += 1
+                    self.avg_cell_size.append(len(sink.getvalue().to_pybytes()) /
+                                              len(transformer.attr_name_list) /
+                                              batch.num_rows)
+                    total_messages += 1
                     self.messaging_timings.append(time.time() - messaging_tick)
 
         if self.object_store:
@@ -101,4 +94,13 @@ class ArrowWriter:
             self.object_store_timing = time.time() - object_store_tick
 
         tock = time.time()
+
+        if self.messaging:
+            avg_avg_cell_size = sum(self.avg_cell_size) / len(self.avg_cell_size) \
+                if len(self.avg_cell_size) else 0
+
+            print("Wrote " + str(total_messages) +
+                  " events  to " + topic_name,
+                  "Avg Cell Size = " + str(avg_avg_cell_size) + " bytes")
+
         print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")

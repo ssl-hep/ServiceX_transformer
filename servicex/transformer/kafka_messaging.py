@@ -61,8 +61,6 @@ class KafkaMessaging(Messaging):
             self.producer.send(topic_name, key=key,
                                value=msg_bytes)
             self.producer.flush()
-            print("Message published to ", topic_name, " successfully ",
-                  len(msg_bytes))
         except Exception as ex:
             print("Exception in publishing message", ex)
             raise
