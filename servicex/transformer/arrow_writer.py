@@ -58,10 +58,11 @@ class ArrowWriter:
                 scratch_writer.append_table_to_scratch(pa_table)
 
             total_events = total_events + pa_table.num_rows
-            batches = pa_table.to_batches(max_chunksize=transformer.chunk_size)
 
-            for batch in batches:
-                if self.messaging:
+            if self.messaging:
+                batches = pa_table.to_batches(max_chunksize=transformer.chunk_size)
+
+                for batch in batches:
                     messaging_tick = time.time()
                     key = str.encode(transformer.file_path + "-" + str(batch_number))
 
@@ -84,10 +85,6 @@ class ArrowWriter:
                           "Avg Cell Size = " + str(avg_cell_size) + " bytes")
                     batch_number += 1
                     self.messaging_timings.append(time.time() - messaging_tick)
-
-                    # if server_endpoint:
-                    #     post_status_update(server_endpoint, "Processed " +
-                    #                        str(batch.num_rows))
 
         if self.object_store:
             object_store_tick = time.time()
