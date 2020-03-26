@@ -27,17 +27,43 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import datetime
 import requests
+import os
+
+from retry.api import retry_call
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
+
+MAX_RETRIES = 3
+RETRY_DELAY = 2
 
 
 class ServiceXAdapter:
     def __init__(self, servicex_endpoint):
         self.server_endpoint = servicex_endpoint
+        self.session = requests.session()
 
-    def post_status_update(self, status_msg):
-        requests.post(self.server_endpoint + "/status", data={
+        retries = Retry(total=5,
+                        connect=3,
+                        backoff_factor=0.1)
+        self.session.mount('http://', HTTPAdapter(max_retries=retries))
+
+    def post_status_update(self, file_id, status_code, info):
+        doc = {
             "timestamp": datetime.datetime.now().isoformat(),
-            "status": status_msg
-        })
+            "status-code": status_code,
+            "pod-name": os.environ['POD_NAME'],
+            "info": info
+        }
+
+        try:
+            retry_call(self.session.post,
+                       fargs=[self.server_endpoint + "/" + str(file_id) + "/status"],
+                       fkwargs={"data": doc},
+                       tries=MAX_RETRIES,
+                       delay=RETRY_DELAY)
+        except requests.exceptions.ConnectionError:
+            print("*************** Unrecoverable Error ***************")
+            print("Connection Error in post_status_update")
 
     def put_file_complete(self, file_path, file_id, status,
                           num_messages=None, total_time=None, total_events=None,
@@ -54,5 +80,14 @@ class ServiceXAdapter:
             "avg-rate": avg_rate
         }
         print("------< ", doc)
+
         if self.server_endpoint:
-            requests.put(self.server_endpoint + "/file-complete", json=doc)
+            try:
+                retry_call(self.session.put,
+                           fargs=[self.server_endpoint + "/file-complete"],
+                           fkwargs={"json": doc},
+                           tries=MAX_RETRIES,
+                           delay=RETRY_DELAY)
+            except requests.exceptions.ConnectionError:
+                print("*************** Unrecoverable Error ***************")
+                print("Connection Error in put_file_complete")
