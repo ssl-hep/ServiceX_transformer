@@ -33,7 +33,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='servicex-transformer',
     packages=setuptools.find_packages(),
-    version='0.4.4.post1',
+    version='1.0.0-RC.2',
     license='bsd 3 clause',
     description='ServiceX Data Transformer for HEP Data',
     long_description=long_description,
