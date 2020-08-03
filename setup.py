@@ -33,7 +33,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name='servicex-transformer',
     packages=setuptools.find_packages(),
-    version='0.4.4.post1',
+    version='1.0.0-RC.2',
     license='bsd 3 clause',
     description='ServiceX Data Transformer for HEP Data',
     long_description=long_description,
@@ -44,23 +44,25 @@ setuptools.setup(
     url='https://github.com/ssl-hep/ServiceX_transformer',
     keywords=['HEP', 'Data Engineering', 'Data Lake'],
     install_requires=[
-        'uproot',
-        'awkward >= 0.12.0',
-        'requests >= 2.22.0',
+        'uproot==3.11.7',
+        'awkward == 0.12.21',
+        'requests == 2.24.0',
         'pyarrow == 0.16.0',
         'numpy == 1.16.6',
-        'kafka-python',
-        'pika',
-        'minio',
+        'kafka-python==2.0.1',
+        'pika==1.1.0',
+        'minio==5.0.10',
         'retry == 0.9.2'
     ],
 
     extras_require={
-        'test': ['flake8==3.5',
-                 'pytest',
-                 'pytest-mock',
-                 'coverage==4.5.2',
-                 'codecov==2.0.15'],
+        'test': [
+            'pytest>=4.6.11',
+            'coverage>=5.2',
+            'codecov==2.1.8',
+            'pytest-mock>=2.0.0',
+            'flake8>=3.8'
+        ]
     },
 
     classifiers=[
