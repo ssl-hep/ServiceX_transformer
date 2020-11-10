@@ -25,22 +25,32 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+from time import sleep
+
 import pika
+import socket
 
 
 class RabbitMQManager:
 
     def __init__(self, rabbit_uri, queue_name, callback):
-        self.rabbitmq = pika.BlockingConnection(
-            pika.URLParameters(rabbit_uri)
-        )
-        _channel = self.rabbitmq.channel()
+        success = False
+        while not success:
+            try:
+                self.rabbitmq = pika.BlockingConnection(
+                    pika.URLParameters(rabbit_uri)
+                )
+                _channel = self.rabbitmq.channel()
 
-        # Set to one since our ops take a long time.
-        # Give another client a chance
-        _channel.basic_qos(prefetch_count=1)
+                # Set to one since our ops take a long time.
+                # Give another client a chance
+                _channel.basic_qos(prefetch_count=1)
 
-        _channel.basic_consume(queue=queue_name,
-                               auto_ack=False,
-                               on_message_callback=callback)
-        _channel.start_consuming()
+                _channel.basic_consume(queue=queue_name,
+                                       auto_ack=False,
+                                       on_message_callback=callback)
+                _channel.start_consuming()
+                success = True
+            except socket.gaierror:
+                print("Failed to connect to RabbitMQ Broker.... retrying")
+                sleep(10)

@@ -25,6 +25,8 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import socket
+
 import pika
 
 from servicex.transformer.rabbit_mq_manager import RabbitMQManager
@@ -43,7 +45,9 @@ class TestRabbitMQManager:
         mock_conn = mocker.MagicMock(pika.BlockingConnection)
         mock_conn.channel = mocker.Mock(return_value=mock_channel)
 
-        mock_pika = mocker.patch('pika.BlockingConnection', return_value=mock_conn)
+        # First attempt to connect will fail, and then after retry succeed
+        mock_pika = mocker.patch('pika.BlockingConnection',
+                                 side_effect=[socket.gaierror(), mock_conn])
 
         RabbitMQManager("http:/foo.com", "servicex", callback)
 
