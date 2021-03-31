@@ -31,13 +31,26 @@ import pyarrow as pa
 
 class ArrowWriter:
 
-    def __init__(self, file_format=None, object_store=None, messaging=None):
+    def __init__(self, file_format=None, object_store=None, messaging=None, logger=None):
         self.file_format = file_format
         self.object_store = object_store
         self.messaging = messaging
         self.messaging_timings = []
         self.object_store_timing = 0
         self.avg_cell_size = []
+        self.__init_logger(logger)
+
+    def __init_logger(self, logger):
+        if not logger:
+            # Default logger outputs to console and writes time - name: message
+            import logging
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+            handler = logging.StreamHandler()
+            handler.setFormatter(formatter)
+            self.__logger = logging.getLogger(__name__)
+            self.__logger.addHandler(handler)
+        else:
+            self.__logger = logger
 
     def write_branches_to_arrow(self, transformer,
                                 topic_name, file_id, request_id):
@@ -83,8 +96,8 @@ class ArrowWriter:
             object_store_tick = time.time()
             scratch_writer.close_scratch_file()
 
-            print("Writing parquet to ", request_id, " as ",
-                  transformer.file_path.replace('/', ':'))
+            self.__logger.info(f"Writing parquet to {request_id} as ",
+                               transformer.file_path.replace('/', ':'))
 
             self.object_store.upload_file(request_id,
                                           transformer.file_path.replace('/', ':'),
@@ -99,8 +112,7 @@ class ArrowWriter:
             avg_avg_cell_size = sum(self.avg_cell_size) / len(self.avg_cell_size) \
                 if len(self.avg_cell_size) else 0
 
-            print("Wrote " + str(total_messages) +
-                  " events  to " + topic_name,
-                  "Avg Cell Size = " + str(avg_avg_cell_size) + " bytes")
+            self.__logger.info(f"Wrote {str(total_messages)} events  to {topic_name}",
+                               f"Avg Cell Size = {str(avg_avg_cell_size)} bytes")
 
-        print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")
+        self.__logger.info("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")
