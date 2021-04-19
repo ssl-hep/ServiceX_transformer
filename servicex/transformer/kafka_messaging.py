@@ -31,17 +31,14 @@ from kafka import KafkaProducer
 
 
 class KafkaMessaging(Messaging):
-    def __init__(self, brokers, max_message_size=15, logger = None):
-        if not logger:
-            # Default logger outputs to console and writes time - name: message
-            import logging
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-            handler = logging.StreamHandler()
-            handler.setFormatter(formatter)
-            self.__logger = logging.getLogger(__name__)
-            self.__logger.addHandler(handler)
-        else:
-            self.__logger = logger
+    def __init__(self, brokers, max_message_size=15):
+        # Default logger doesn't print so that code that uses library
+        # can override
+        import logging
+
+        handler = logging.NullHandler()
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.addHandler(handler)
 
         self.__logger.info(f"Max Message size: {str(max_message_size)} Mb")
         self.max_message_size = max_message_size

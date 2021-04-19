@@ -33,18 +33,14 @@ import socket
 
 class RabbitMQManager:
 
-    def __init__(self, rabbit_uri, queue_name, callback, logger=None):
+    def __init__(self, rabbit_uri, queue_name, callback):
         success = False
-        if not logger:
-            # Default logger outputs to console and writes time - name: message
-            import logging
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-            handler = logging.StreamHandler()
-            handler.setFormatter(formatter)
-            self.__logger = logging.getLogger(__name__)
-            self.__logger.addHandler(handler)
-        else:
-            self.__logger = logger
+
+        import logging
+        handler = logging.NullHandler()
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.addHandler(handler)
+
         while not success:
             try:
                 self.rabbitmq = pika.BlockingConnection(

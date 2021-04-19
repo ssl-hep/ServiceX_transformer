@@ -39,16 +39,13 @@ RETRY_DELAY = 2
 
 class ServiceXAdapter:
     def __init__(self, servicex_endpoint, logger=None):
-        if not logger:
-            # Default logger outputs to console and writes time - name: message
-            import logging
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-            handler = logging.StreamHandler()
-            handler.setFormatter(formatter)
-            self.__logger = logging.getLogger(__name__)
-            self.__logger.addHandler(handler)
-        else:
-            self.__logger = logger
+        # Default logger doesn't print so that code that uses library
+        # can override
+        import logging
+
+        handler = logging.NullHandler()
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.addHandler(handler)
 
         self.server_endpoint = servicex_endpoint
         self.session = requests.session()

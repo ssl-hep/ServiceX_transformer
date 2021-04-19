@@ -31,26 +31,23 @@ import pyarrow as pa
 
 class ArrowWriter:
 
-    def __init__(self, file_format=None, object_store=None, messaging=None, logger=None):
+    def __init__(self, file_format=None, object_store=None, messaging=None):
         self.file_format = file_format
         self.object_store = object_store
         self.messaging = messaging
         self.messaging_timings = []
         self.object_store_timing = 0
         self.avg_cell_size = []
-        self.__init_logger(logger)
+        self.__init_logger()
 
-    def __init_logger(self, logger):
-        if not logger:
-            # Default logger outputs to console and writes time - name: message
-            import logging
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-            handler = logging.StreamHandler()
-            handler.setFormatter(formatter)
-            self.__logger = logging.getLogger(__name__)
-            self.__logger.addHandler(handler)
-        else:
-            self.__logger = logger
+    def __init_logger(self):
+        # Default logger doesn't print so that code that uses library
+        # can override
+        import logging
+
+        handler = logging.NullHandler()
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.addHandler(handler)
 
     def write_branches_to_arrow(self, transformer,
                                 topic_name, file_id, request_id):
