@@ -26,8 +26,10 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import datetime
-import requests
+import json
 import os
+
+import requests
 
 from retry.api import retry_call
 from urllib3.util.retry import Retry
@@ -87,7 +89,7 @@ class ServiceXAdapter:
             "total-bytes": total_bytes,
             "avg-rate": avg_rate
         }
-        self.__logger.info(f"------< {doc}")
+        self.__logger.info(f"Metric: {json.dumps(doc)}")
 
         if self.server_endpoint:
             try:
