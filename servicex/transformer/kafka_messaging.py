@@ -32,8 +32,15 @@ from kafka import KafkaProducer
 
 class KafkaMessaging(Messaging):
     def __init__(self, brokers, max_message_size=15):
+        # Default logger doesn't print so that code that uses library
+        # can override
+        import logging
 
-        print("Max Message size: " + str(max_message_size) + "Mb")
+        handler = logging.NullHandler()
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.addHandler(handler)
+
+        self.__logger.info(f"Max Message size: {str(max_message_size)} Mb")
         self.max_message_size = max_message_size
 
         if not brokers:
@@ -44,15 +51,15 @@ class KafkaMessaging(Messaging):
             self.brokers = brokers
 
         self.producer = None
-        print('Configured Kafka backend')
+        self.__logger.info('Configured Kafka backend')
 
         try:
             self.producer = KafkaProducer(bootstrap_servers=self.brokers,
                                           api_version=(0, 10),
                                           max_request_size=int(max_message_size * 1e6))
-            print("Kafka producer created successfully")
+            self.__logger.info("Kafka producer created successfully")
         except Exception as ex:
-            print("Exception while getting Kafka producer", ex)
+            self.__logger.error(f"Exception while getting Kafka producer {ex}")
             sys.exit(1)
 
     def publish_message(self, topic_name, key, value_buffer):
@@ -62,6 +69,6 @@ class KafkaMessaging(Messaging):
                                value=msg_bytes)
             self.producer.flush()
         except Exception as ex:
-            print("Exception in publishing message", ex)
+            self.__logger.error(f"Exception in publishing message {ex}")
             raise
         return True

@@ -35,6 +35,12 @@ class RabbitMQManager:
 
     def __init__(self, rabbit_uri, queue_name, callback):
         success = False
+
+        import logging
+        handler = logging.NullHandler()
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.addHandler(handler)
+
         while not success:
             try:
                 self.rabbitmq = pika.BlockingConnection(
@@ -52,5 +58,5 @@ class RabbitMQManager:
                 _channel.start_consuming()
                 success = True
             except socket.gaierror:
-                print("Failed to connect to RabbitMQ Broker.... retrying")
+                self.__logger.error("Failed to connect to RabbitMQ Broker.... retrying")
                 sleep(10)

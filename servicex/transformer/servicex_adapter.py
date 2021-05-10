@@ -38,7 +38,15 @@ RETRY_DELAY = 2
 
 
 class ServiceXAdapter:
-    def __init__(self, servicex_endpoint):
+    def __init__(self, servicex_endpoint, logger=None):
+        # Default logger doesn't print so that code that uses library
+        # can override
+        import logging
+
+        handler = logging.NullHandler()
+        self.__logger = logging.getLogger(__name__)
+        self.__logger.addHandler(handler)
+
         self.server_endpoint = servicex_endpoint
         self.session = requests.session()
 
@@ -62,8 +70,8 @@ class ServiceXAdapter:
                        tries=MAX_RETRIES,
                        delay=RETRY_DELAY)
         except requests.exceptions.ConnectionError:
-            print("*************** Unrecoverable Error ***************")
-            print("Connection Error in post_status_update")
+            self.__logger.error("*************** Unrecoverable Error ***************")
+            self.__logger.error("Connection Error in post_status_update")
 
     def put_file_complete(self, file_path, file_id, status,
                           num_messages=None, total_time=None, total_events=None,
@@ -79,7 +87,7 @@ class ServiceXAdapter:
             "total-bytes": total_bytes,
             "avg-rate": avg_rate
         }
-        print("------< ", doc)
+        self.__logger.info(f"------< {doc}")
 
         if self.server_endpoint:
             try:
@@ -89,5 +97,5 @@ class ServiceXAdapter:
                            tries=MAX_RETRIES,
                            delay=RETRY_DELAY)
             except requests.exceptions.ConnectionError:
-                print("*************** Unrecoverable Error ***************")
-                print("Connection Error in put_file_complete")
+                self.__logger.error("*************** Unrecoverable Error ***************")
+                self.__logger.error("Connection Error in put_file_complete")
