@@ -26,7 +26,6 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import logging
-import types
 import typing
 from collections import OrderedDict
 
@@ -139,7 +138,8 @@ class TestArrowWriter:
                                    file_id=42, request_id="123-45")
         assert len(caplog.records) == 2
         assert caplog.records[0].levelno == logging.INFO
-        assert caplog.records[0].msg == "Wrote 2 events to servicex Avg Cell Size = 22.153846153846153 bytes"
+        assert caplog.records[0].msg == "Wrote 2 events to servicex Avg Cell Size = " + \
+               "22.153846153846153 bytes"
         assert caplog.records[1].levelno == logging.INFO
         assert caplog.records[1].msg == "Real time: 0.0 minutes"
         mock_transformer.arrow_table.assert_called_with()
