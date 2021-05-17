@@ -26,6 +26,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 from time import sleep
+import logging
 
 import pika
 import socket
@@ -36,10 +37,9 @@ class RabbitMQManager:
     def __init__(self, rabbit_uri, queue_name, callback):
         success = False
 
-        import logging
         handler = logging.NullHandler()
-        self.__logger = logging.getLogger(__name__)
-        self.__logger.addHandler(handler)
+        self.logger = logging.getLogger(__name__)
+        self.logger.addHandler(handler)
 
         while not success:
             try:
@@ -57,6 +57,7 @@ class RabbitMQManager:
                                        on_message_callback=callback)
                 _channel.start_consuming()
                 success = True
+                self.logger.info("Connected to RabbitMQ Broker")
             except socket.gaierror:
-                self.__logger.error("Failed to connect to RabbitMQ Broker.... retrying")
+                self.logger.error("Failed to connect to RabbitMQ Broker.... retrying")
                 sleep(10)

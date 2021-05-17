@@ -25,6 +25,7 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import logging
 import socket
 
 import pika
@@ -33,10 +34,10 @@ from servicex.transformer.rabbit_mq_manager import RabbitMQManager
 
 
 class TestRabbitMQManager:
-    def test_init(self, mocker):
+    def test_init(self, mocker, caplog):
         def callback():
             return "hi"
-
+        caplog.set_level(logging.INFO)
         mock_url_parameters = mocker.patch('pika.URLParameters', return_value="mock_url")
         mock_channel = mocker.MagicMock(pika.adapters.blocking_connection.BlockingChannel)
         mock_channel.basic_qos = mocker.Mock()
@@ -59,3 +60,9 @@ class TestRabbitMQManager:
         assert basic_consume_config['queue'] == 'servicex'
         assert not basic_consume_config['auto_ack']
         mock_channel.start_consuming.assert_called()
+
+        assert len(caplog.records) == 2
+        assert caplog.records[0].levelno == logging.ERROR
+        assert caplog.records[0].msg == "Failed to connect to RabbitMQ Broker.... retrying"
+        assert caplog.records[1].levelno == logging.INFO
+        assert caplog.records[1].msg == "Connected to RabbitMQ Broker"
