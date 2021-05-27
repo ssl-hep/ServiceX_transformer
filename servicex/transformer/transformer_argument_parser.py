@@ -71,7 +71,7 @@ class TransformerArgumentParser(argparse.ArgumentParser):
         self.add_argument('--result-destination', dest='result_destination',
                           action='store',
                           default='kafka', help='kafka, object-store, output-dir',
-                          choices=['kafka', 'object-store', 'output-dir'])
+                          choices=['kafka', 'object-store', 'output-dir', 'volume'])
 
         self.add_argument('--output-dir', dest='output_dir',
                           action='store',
@@ -91,6 +91,9 @@ class TransformerArgumentParser(argparse.ArgumentParser):
 
         self.add_argument('--request-id', dest='request_id', action='store',
                           default='servicex', help='Request ID to read from queue')
+        
+        self.add_argument('--subdir', dest='subdir', action='store',
+                          default='servicex', help='subdirectory in persistence volume to write result to')
 
     @classmethod
     def extract_kafka_brokers(cls, brokerlist):
