@@ -47,6 +47,7 @@ transformation request ID.
 | --max-message-size | Maximum size for any message in Megabytes | 14.5 Mb |
 | --rabbit-uri URI | RabbitMQ Connection URI | host.docker.internal |
 | --request-id GUID| ID associated with this transformation request. Used as RabbitMQ Topic Name as well as object-store bucket | servicex
+| --subdir SUBDIR| Subdirectory in the persistent volume to write result to | |
 
 
 ## Running Tests
