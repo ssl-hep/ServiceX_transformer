@@ -93,7 +93,7 @@ class TransformerArgumentParser(argparse.ArgumentParser):
                           default='servicex', help='Request ID to read from queue')
 
         self.add_argument('--subdir', dest='subdir', action='store',
-                          default='servicex',
+                          default=None,
                           help='subdirectory in the persistence volume to write result to')
 
     @classmethod
