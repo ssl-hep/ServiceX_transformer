@@ -30,10 +30,16 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+version = os.getenv('servicex_version')
+if version is None:
+    version = '0.1a1'
+else:
+    version = version.split('/')[-1]
+
 setuptools.setup(
     name='servicex-transformer',
     packages=setuptools.find_packages(),
-    version='1.0.0-RC.3',
+    version=version,
     license='bsd 3 clause',
     description='ServiceX Data Transformer for HEP Data',
     long_description=long_description,
