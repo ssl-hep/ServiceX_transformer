@@ -91,9 +91,10 @@ class TransformerArgumentParser(argparse.ArgumentParser):
 
         self.add_argument('--request-id', dest='request_id', action='store',
                           default='servicex', help='Request ID to read from queue')
-        
+
         self.add_argument('--subdir', dest='subdir', action='store',
-                          default='servicex', help='subdirectory in the persistence volume to write result to')
+                          default='servicex',
+                          help='subdirectory in the persistence volume to write result to')
 
     @classmethod
     def extract_kafka_brokers(cls, brokerlist):
