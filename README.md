@@ -41,13 +41,12 @@ transformation request ID.
 | --tree TREE | Root Tree to extract data from. Only valid for uproot transformer | Events
 | --path PATH | Path to single Root file to transform. Any file path readable by xrootd | |
 | --limit LIMIT | Max number of events to process | |
-| --result-destination DEST| Where to send the results: kafka or object-store, output-dir | kafka
+| --result-destination DEST| Where to send the results: kafka or object-store, output-dir, volume | kafka
 | --output-dir | Local directory where the result will be written. Use this to run standalone without other serviceX infrastructure | None 
 | --result-format | Binary format for the results: arrow, parquet, or root-file | arrow
 | --max-message-size | Maximum size for any message in Megabytes | 14.5 Mb |
 | --rabbit-uri URI | RabbitMQ Connection URI | host.docker.internal |
 | --request-id GUID| ID associated with this transformation request. Used as RabbitMQ Topic Name as well as object-store bucket | servicex
-| --subdir SUBDIR| Subdirectory in the persistent volume to write result to | |
 
 
 ## Running Tests
