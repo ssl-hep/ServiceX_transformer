@@ -71,7 +71,7 @@ class TransformerArgumentParser(argparse.ArgumentParser):
         self.add_argument('--result-destination', dest='result_destination',
                           action='store',
                           default='kafka', help='kafka, object-store, output-dir',
-                          choices=['kafka', 'object-store', 'output-dir'])
+                          choices=['kafka', 'object-store', 'output-dir', 'volume'])
 
         self.add_argument('--output-dir', dest='output_dir',
                           action='store',
