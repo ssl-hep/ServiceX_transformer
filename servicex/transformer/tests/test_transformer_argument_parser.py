@@ -42,36 +42,22 @@ class TestTransformerArgumentParser:
         arg_parser = TransformerArgumentParser(description="Test Transformer")
         sys.argv = ["foo",
                     "--path", "/foo/bar",
-                    "--brokerlist", "kafka1.org",
-                    "--topic", "mytopic",
-                    "--chunks", "100",
                     "--tree", "Events",
                     "--limit", "10",
-                    '--result-destination', 'kafka',
+                    '--result-destination', 'object-store',
                     '--result-format', 'arrow',
-                    "--max-message-size", "42",
                     '--rabbit-uri', "http://rabbit.org",
                     '--request-id', "123-45-678"
                     ]
 
         args = arg_parser.parse_args()
         assert args.path == '/foo/bar'
-        assert args.brokerlist == "kafka1.org"
-        assert args.topic == 'mytopic'
-        assert args.chunks == 100
         assert args.tree == 'Events'
         assert args.limit == 10
-        assert args.result_destination == 'kafka'
+        assert args.result_destination == 'object-store'
         assert args.result_format == 'arrow'
-        assert args.max_message_size == 42
         assert args.rabbit_uri == "http://rabbit.org"
         assert args.request_id == "123-45-678"
-
-    def test_extract_broker_list(self):
-        brokers = TransformerArgumentParser.extract_kafka_brokers("kafka1,kafka2")
-        assert len(brokers) == 2
-        assert brokers[0] == 'kafka1'
-        assert brokers[1] == 'kafka2'
 
     def test_extract_attr_list(self):
         attrs = TransformerArgumentParser.extract_attr_list("a,b,c")

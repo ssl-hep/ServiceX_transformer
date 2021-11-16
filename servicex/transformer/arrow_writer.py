@@ -31,16 +31,13 @@ import pyarrow as pa
 
 class ArrowWriter:
 
-    def __init__(self, file_format=None, object_store=None, messaging=None):
+    def __init__(self, file_format=None, object_store=None):
         self.file_format = file_format
         self.object_store = object_store
-        self.messaging = messaging
-        self.messaging_timings = []
         self.object_store_timing = 0
         self.avg_cell_size = []
 
-    def write_branches_to_arrow(self, transformer,
-                                topic_name, file_id, request_id):
+    def write_branches_to_arrow(self, transformer, request_id):
         from .scratch_file_writer import ScratchFileWriter
 
         tick = time.time()
@@ -54,30 +51,6 @@ class ArrowWriter:
                     scratch_writer.open_scratch_file(pa_table)
 
                 scratch_writer.append_table_to_scratch(pa_table)
-
-            if self.messaging:
-                batches = pa_table.to_batches(max_chunksize=transformer.chunk_size)
-
-                for batch in batches:
-                    messaging_tick = time.time()
-
-                    # Just need to make key unique to shard messages across brokers
-                    key = str.encode(transformer.file_path + "-" + str(total_messages))
-
-                    sink = pa.BufferOutputStream()
-                    writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-                    writer.write_batch(batch)
-                    writer.close()
-                    self.messaging.publish_message(
-                        topic_name,
-                        key,
-                        sink.getvalue())
-
-                    self.avg_cell_size.append(len(sink.getvalue().to_pybytes()) /
-                                              len(transformer.attr_name_list) /
-                                              batch.num_rows)
-                    total_messages += 1
-                    self.messaging_timings.append(time.time() - messaging_tick)
 
         if self.object_store:
             object_store_tick = time.time()
@@ -94,13 +67,5 @@ class ArrowWriter:
             self.object_store_timing = time.time() - object_store_tick
 
         tock = time.time()
-
-        if self.messaging:
-            avg_avg_cell_size = sum(self.avg_cell_size) / len(self.avg_cell_size) \
-                if len(self.avg_cell_size) else 0
-
-            print("Wrote " + str(total_messages) +
-                  " events  to " + topic_name,
-                  "Avg Cell Size = " + str(avg_avg_cell_size) + " bytes")
 
         print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")

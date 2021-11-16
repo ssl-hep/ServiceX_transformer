@@ -57,7 +57,6 @@ setuptools.setup(
         'requests == 2.24.0',
         'pyarrow == 0.16.0',
         'numpy == 1.16.6',
-        'kafka-python==2.0.1',
         'pika==1.1.0',
         'minio==5.0.10',
         'retry == 0.9.2'
