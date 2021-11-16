@@ -26,7 +26,6 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import time
-import pyarrow as pa
 
 
 class ArrowWriter:
@@ -42,7 +41,6 @@ class ArrowWriter:
 
         tick = time.time()
         scratch_writer = None
-        total_messages = 0
 
         for pa_table in transformer.arrow_table():
             if self.object_store:
