@@ -26,6 +26,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import time
+import logging
+
 import pyarrow as pa
 
 
@@ -38,11 +40,18 @@ class ArrowWriter:
         self.messaging_timings = []
         self.object_store_timing = 0
         self.avg_cell_size = []
+        self.__init_logger()
+
+    def __init_logger(self):
+        # Default logger doesn't print so that code that uses library
+        # can override
+        handler = logging.NullHandler()
+        self.logger = logging.getLogger(__name__)
+        self.logger.addHandler(handler)
 
     def write_branches_to_arrow(self, transformer,
                                 topic_name, file_id, request_id):
         from .scratch_file_writer import ScratchFileWriter
-
         tick = time.time()
         scratch_writer = None
         total_messages = 0
@@ -83,8 +92,8 @@ class ArrowWriter:
             object_store_tick = time.time()
             scratch_writer.close_scratch_file()
 
-            print("Writing parquet to ", request_id, " as ",
-                  transformer.file_path.replace('/', ':'))
+            self.logger.info(f"Writing parquet to {request_id} as ",
+                             transformer.file_path.replace('/', ':'))
 
             self.object_store.upload_file(request_id,
                                           transformer.file_path.replace('/', ':'),
@@ -98,9 +107,7 @@ class ArrowWriter:
         if self.messaging:
             avg_avg_cell_size = sum(self.avg_cell_size) / len(self.avg_cell_size) \
                 if len(self.avg_cell_size) else 0
+            self.logger.info(f"Wrote {total_messages} events to {topic_name} " +
+                             f"Avg Cell Size = {avg_avg_cell_size} bytes")
 
-            print("Wrote " + str(total_messages) +
-                  " events  to " + topic_name,
-                  "Avg Cell Size = " + str(avg_avg_cell_size) + " bytes")
-
-        print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")
+        self.logger.info(f"Real time: {round((tock - tick) / 60.0, 2)} minutes")

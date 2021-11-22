@@ -25,6 +25,8 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import logging
+import typing
 from collections import OrderedDict
 
 from servicex.transformer.arrow_writer import ArrowWriter
@@ -39,6 +41,24 @@ if sys.version_info >= (3, 3):
     from unittest.mock import call  # noqa: E402
 else:
     from mock import call  # noqa: E402
+
+
+class CaptureHandler(logging.StreamHandler):
+    """
+    Handler that captures messages being logged so that they can be checked
+    """
+    def __init__(self):
+        super().__init__()
+        self.__messages = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.__messages.append(self.format(record))
+
+    def get_messages(self) -> typing.List[str]:
+        return self.__messages
+
+    def reset_messages(self) -> None:
+        self.__messages = []
 
 
 class TestArrowWriter:
@@ -95,9 +115,9 @@ class TestArrowWriter:
                                                               "/tmp/foo")
         mock_scratch_file.remove_scratch_file.assert_called_once()
 
-    def test_transform_file_kafka(self, mocker):
+    def test_transform_file_kafka(self, mocker, caplog):
         mock_kafka = mocker.MagicMock(KafkaMessaging)
-
+        caplog.set_level(logging.INFO)
         aw = ArrowWriter(file_format='parquet',
                          object_store=None,
                          messaging=mock_kafka)
@@ -113,9 +133,15 @@ class TestArrowWriter:
         table2 = pa.Table.from_pydict(data)
 
         mock_transformer.arrow_table = mocker.Mock(return_value=iter([table, table2]))
+        caplog.clear()
         aw.write_branches_to_arrow(transformer=mock_transformer, topic_name='servicex',
                                    file_id=42, request_id="123-45")
-
+        assert len(caplog.records) == 2
+        assert caplog.records[0].levelno == logging.INFO
+        assert caplog.records[0].msg == "Wrote 2 events to servicex Avg Cell Size = " + \
+               "22.153846153846153 bytes"
+        assert caplog.records[1].levelno == logging.INFO
+        assert caplog.records[1].msg == "Real time: 0.0 minutes"
         mock_transformer.arrow_table.assert_called_with()
 
         kafka_calls = mock_kafka.publish_message.call_args_list

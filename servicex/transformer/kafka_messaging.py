@@ -26,14 +26,24 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import sys
+import logging
 from .messaging import Messaging
 from kafka import KafkaProducer
 
 
 class KafkaMessaging(Messaging):
+    """
+    Deprecated, we don't support Kafka any more
+    """
     def __init__(self, brokers, max_message_size=15):
+        # Default logger doesn't print so that code that uses library
+        # can override
 
-        print("Max Message size: " + str(max_message_size) + "Mb")
+        handler = logging.NullHandler()
+        self.logger = logging.getLogger(__name__)
+        self.logger.addHandler(handler)
+
+        self.logger.info(f"Max Message size: {str(max_message_size)} Mb")
         self.max_message_size = max_message_size
 
         if not brokers:
@@ -44,15 +54,15 @@ class KafkaMessaging(Messaging):
             self.brokers = brokers
 
         self.producer = None
-        print('Configured Kafka backend')
+        self.logger.info('Configured Kafka backend')
 
         try:
             self.producer = KafkaProducer(bootstrap_servers=self.brokers,
                                           api_version=(0, 10),
                                           max_request_size=int(max_message_size * 1e6))
-            print("Kafka producer created successfully")
+            self.logger.info("Kafka producer created successfully")
         except Exception as ex:
-            print("Exception while getting Kafka producer", ex)
+            self.logger.error(f"Exception while getting Kafka producer {ex}")
             sys.exit(1)
 
     def publish_message(self, topic_name, key, value_buffer):
@@ -62,6 +72,6 @@ class KafkaMessaging(Messaging):
                                value=msg_bytes)
             self.producer.flush()
         except Exception as ex:
-            print("Exception in publishing message", ex)
+            self.logger.error(f"Exception in publishing message {ex}")
             raise
         return True

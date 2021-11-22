@@ -25,6 +25,9 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import json
+import logging
+
 from servicex.transformer.servicex_adapter import ServiceXAdapter
 
 
@@ -40,9 +43,9 @@ class TestServiceXAdapter:
         assert retries.total == 5
         assert retries.connect == 3
 
-    def test_put_file_complete(self, mocker):
+    def test_put_file_complete(self, mocker, caplog):
         import requests
-
+        caplog.set_level(logging.INFO)
         mock_session = mocker.MagicMock(requests.session)
         mock_session.mount = mocker.Mock()
         mock_session.put = mocker.Mock()
@@ -62,9 +65,13 @@ class TestServiceXAdapter:
         assert doc['file-id'] == 42
         assert doc['avg-rate'] == 1
 
-    def test_put_file_complete_retry(self, mocker):
-        import requests
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelno == logging.INFO
+        assert caplog.records[0].msg == f"Metric: {json.dumps(doc)}"
 
+    def test_put_file_complete_retry(self, mocker, caplog):
+        import requests
+        caplog.set_level(logging.INFO)
         mock_session = mocker.MagicMock(requests.session)
         mock_session.mount = mocker.Mock()
         mock_session.put = mocker.Mock(side_effect=[requests.exceptions.ConnectionError, 200])
@@ -73,11 +80,20 @@ class TestServiceXAdapter:
         adapter = ServiceXAdapter("http://foo.com")
         adapter.put_file_complete("my-root.root", 42, "testing", 1, 2, 3, 4)
         assert mock_session.put.call_count == 2
+        print(caplog.records)
+        assert len(caplog.records) == 2
+        args = mock_session.put.call_args
+        doc = args[1]['json']
+        assert caplog.records[0].levelno == logging.INFO
+        assert caplog.records[0].msg == f"Metric: {json.dumps(doc)}"
+        assert caplog.records[1].levelno == logging.WARNING
+        assert caplog.records[1].msg == '%s, retrying in %s seconds...'
 
-    def test_post_status_update(self, mocker):
+    def test_post_status_update(self, mocker, caplog):
         import requests
         import os
         mocker.patch.dict(os.environ, {"POD_NAME": "my-pod"})
+        caplog.set_level(logging.INFO)
 
         mock_session = mocker.MagicMock(requests.session)
         mock_session.mount = mocker.Mock()
@@ -93,11 +109,13 @@ class TestServiceXAdapter:
         assert doc['status-code'] == 'testing'
         assert doc['info'] == 'this is a test'
         assert doc['pod-name'] == 'my-pod'
+        assert len(caplog.records) == 0
 
-    def test_post_status_update_retry(self, mocker):
+    def test_post_status_update_retry(self, mocker, caplog):
         import requests
         import os
         mocker.patch.dict(os.environ, {"POD_NAME": "my-pod"})
+        caplog.set_level(logging.INFO)
 
         mock_session = mocker.MagicMock(requests.session)
         mock_session.mount = mocker.Mock()
@@ -108,3 +126,6 @@ class TestServiceXAdapter:
         adapter = ServiceXAdapter("http://foo.com")
         adapter.post_status_update(42, "testing", "this is a test")
         assert mock_session.post.call_count == 2
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelno == logging.WARNING
+        assert caplog.records[0].msg == '%s, retrying in %s seconds...'
