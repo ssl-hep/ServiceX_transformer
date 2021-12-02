@@ -40,7 +40,7 @@ class TestObjectStoreManager:
         assert called_config['secret_key'] == 'bar'
         assert not called_config['secure']
 
-        ObjectStoreManager('localhost:9999', 'foo', 'bar', true)
+        ObjectStoreManager('localhost:9999', 'foo', 'bar', True)
         called_config = mock_minio.call_args[1]
         assert called_config['endpoint'] == 'localhost:9999'
         assert called_config['access_key'] == 'foo'
@@ -67,7 +67,6 @@ class TestObjectStoreManager:
         assert called_config['access_key'] == 'test'
         assert called_config['secret_key'] == 'shhh'
         assert called_config['secure']
-
 
     def test_upload_file(self, mocker):
         import minio
