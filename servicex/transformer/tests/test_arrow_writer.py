@@ -51,13 +51,13 @@ class CaptureHandler(logging.StreamHandler):
         super().__init__()
         self.__messages = []
 
-    def emit(self, record: logging.LogRecord) -> None:
+    def emit(self, record):
         self.__messages.append(self.format(record))
 
-    def get_messages(self) -> typing.List[str]:
+    def get_messages(self):
         return self.__messages
 
-    def reset_messages(self) -> None:
+    def reset_messages(self):
         self.__messages = []
 
 

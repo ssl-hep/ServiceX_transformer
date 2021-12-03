@@ -107,7 +107,7 @@ class ArrowWriter:
         if self.messaging:
             avg_avg_cell_size = sum(self.avg_cell_size) / len(self.avg_cell_size) \
                 if len(self.avg_cell_size) else 0
-            self.logger.info(f"Wrote {total_messages} events to {topic_name} " +
-                             f"Avg Cell Size = {avg_avg_cell_size} bytes")
+            self.logger.info("Wrote {0} events to {1} ".format(total_messages, topic_name) +
+                             "Avg Cell Size = {0} bytes".format(avg_avg_cell_size))
 
-        self.logger.info(f"Real time: {round((tock - tick) / 60.0, 2)} minutes")
+        self.logger.info("Real time: {0} minutes".format(round((tock - tick) / 60.0, 2)))

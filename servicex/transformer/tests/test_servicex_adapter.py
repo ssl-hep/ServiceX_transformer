@@ -67,7 +67,7 @@ class TestServiceXAdapter:
 
         assert len(caplog.records) == 1
         assert caplog.records[0].levelno == logging.INFO
-        assert caplog.records[0].msg == f"Metric: {json.dumps(doc)}"
+        assert caplog.records[0].msg == "Metric: {0}".format(json.dumps(doc))
 
     def test_put_file_complete_retry(self, mocker, caplog):
         import requests
