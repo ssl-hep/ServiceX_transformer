@@ -47,7 +47,7 @@ class CaptureHandler(logging.StreamHandler):
     Handler that captures messages being logged so that they can be checked
     """
     def __init__(self):
-        super().__init__()
+        super(CaptureHandler, self).__init__()
         self.__messages = []
 
     def emit(self, record):

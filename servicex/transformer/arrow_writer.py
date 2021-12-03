@@ -92,7 +92,7 @@ class ArrowWriter:
             object_store_tick = time.time()
             scratch_writer.close_scratch_file()
 
-            self.logger.info(f"Writing parquet to {request_id} as ",
+            self.logger.info("Writing parquet to {0} as ".format(request_id),
                              transformer.file_path.replace('/', ':'))
 
             self.object_store.upload_file(request_id,

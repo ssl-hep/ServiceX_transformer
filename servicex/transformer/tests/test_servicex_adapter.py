@@ -85,7 +85,7 @@ class TestServiceXAdapter:
         args = mock_session.put.call_args
         doc = args[1]['json']
         assert caplog.records[0].levelno == logging.INFO
-        assert caplog.records[0].msg == f"Metric: {json.dumps(doc)}"
+        assert caplog.records[0].msg == "Metric: {0}".format(json.dumps(doc))
         assert caplog.records[1].levelno == logging.WARNING
         assert caplog.records[1].msg == '%s, retrying in %s seconds...'
 
