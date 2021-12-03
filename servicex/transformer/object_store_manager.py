@@ -26,7 +26,6 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import os
-import sys
 
 
 class ObjectStoreManager:
@@ -40,7 +39,6 @@ class ObjectStoreManager:
                 secure_connection = False
         else:
             secure_connection = use_https
-        sys.stderr.write("secure_connection = {0}".format(secure_connection))
         self.minio_client = Minio(endpoint=url if url else os.environ[
                                       'MINIO_URL'],
                                   access_key=username if username else os.environ[
