@@ -105,7 +105,9 @@ class ArrowWriter:
         tock = time.time()
 
         if self.messaging:
-            avg_avg_cell_size = sum(self.avg_cell_size) / len(self.avg_cell_size) \
+            # need the float type conversion so that / operation doesn't use integer div
+            # TODO: remove float call when we drop support for python 2
+            avg_avg_cell_size = float(sum(self.avg_cell_size)) / len(self.avg_cell_size) \
                 if len(self.avg_cell_size) else 0
             self.logger.info("Wrote {0} events to {1} ".format(total_messages, topic_name) +
                              "Avg Cell Size = {0} bytes".format(avg_avg_cell_size))
