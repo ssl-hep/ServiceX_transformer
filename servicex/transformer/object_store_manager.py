@@ -30,16 +30,19 @@ import os
 
 class ObjectStoreManager:
 
-    def __init__(self, url=None, username=None, password=None):
+    def __init__(self, url=None, username=None, password=None, use_https=False):
         from minio import Minio
-
+        if 'MINIO_SECURED' in os.environ:
+            secure_connection = os.environ['MINIO_SECURED'].lower() == "true"
+        else:
+            secure_connection = use_https
         self.minio_client = Minio(endpoint=url if url else os.environ[
                                       'MINIO_URL'],
                                   access_key=username if username else os.environ[
                                       'MINIO_ACCESS_KEY'],
                                   secret_key=password if password else os.environ[
                                       'MINIO_SECRET_KEY'],
-                                  secure=False)
+                                  secure=secure_connection)
 
     def upload_file(self, bucket, object_name, path):
         self.minio_client.fput_object(bucket_name=bucket,

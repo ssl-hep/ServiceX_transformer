@@ -43,7 +43,7 @@ class KafkaMessaging(Messaging):
         self.logger = logging.getLogger(__name__)
         self.logger.addHandler(handler)
 
-        self.logger.info(f"Max Message size: {str(max_message_size)} Mb")
+        self.logger.info("Max Message size: {0} Mb".format(str(max_message_size)))
         self.max_message_size = max_message_size
 
         if not brokers:
@@ -62,7 +62,7 @@ class KafkaMessaging(Messaging):
                                           max_request_size=int(max_message_size * 1e6))
             self.logger.info("Kafka producer created successfully")
         except Exception as ex:
-            self.logger.error(f"Exception while getting Kafka producer {ex}")
+            self.logger.exception("Exception while getting Kafka producer {0}".format(ex))
             sys.exit(1)
 
     def publish_message(self, topic_name, key, value_buffer):
@@ -72,6 +72,6 @@ class KafkaMessaging(Messaging):
                                value=msg_bytes)
             self.producer.flush()
         except Exception as ex:
-            self.logger.error(f"Exception in publishing message {ex}")
+            self.logger.exception("Exception in publishing message {0}".format(ex))
             raise
         return True
