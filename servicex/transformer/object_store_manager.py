@@ -33,10 +33,7 @@ class ObjectStoreManager:
     def __init__(self, url=None, username=None, password=None, use_https=False):
         from minio import Minio
         if 'MINIO_SECURED' in os.environ:
-            if os.environ['MINIO_SECURED'].lower() == "true":
-                secure_connection = True
-            else:
-                secure_connection = False
+            secure_connection = os.environ['MINIO_SECURED'].lower() == "true"
         else:
             secure_connection = use_https
         self.minio_client = Minio(endpoint=url if url else os.environ[
