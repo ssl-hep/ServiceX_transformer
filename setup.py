@@ -56,7 +56,7 @@ setuptools.setup(
         'awkward == 0.12.21',
         'requests == 2.24.0',
         'pyarrow == 0.16.0',
-        'numpy == 1.16.6',
+        'numpy == 1.21.0',
         'pika==1.1.0',
         'minio==5.0.10',
         'retry == 0.9.2'
