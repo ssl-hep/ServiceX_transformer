@@ -40,19 +40,18 @@ def _parse_column_name(attr):
 
 class UprootEvents:
 
-    def __init__(self, file_path, tree_name, attr_name_list, chunk_size, event_limit=None):
+    def __init__(self, file_path, tree_name, attr_name_list, event_limit=None):
 
         self.file_path = file_path
         self.file_in = uproot.open(file_path)
         self.tree = self.file_in[tree_name]
 
         self.attr_name_list = attr_name_list
-        self.chunk_size = chunk_size
         self.event_limit = event_limit
 
     def get_entry_count(self):
         return self.tree.numentries
 
     def iterate(self):
-        for things in self.tree.iterate(self.attr_name_list, entrysteps=self.chunk_size):
+        for things in self.tree.iterate(self.attr_name_list):
             yield things

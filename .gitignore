@@ -1,6 +1,7 @@
 secrets
 .idea/
 __pycache__/
+.pytest_cache
 *.pyc
 .cache/
 .coverage

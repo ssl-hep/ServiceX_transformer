@@ -30,7 +30,6 @@ from collections import OrderedDict
 
 from servicex.transformer.arrow_writer import ArrowWriter
 from servicex.transformer.object_store_manager import ObjectStoreManager
-from servicex.transformer.kafka_messaging import KafkaMessaging
 from servicex.transformer.uproot_transformer import UprootTransformer
 import pyarrow as pa
 
@@ -46,6 +45,7 @@ class CaptureHandler(logging.StreamHandler):
     """
     Handler that captures messages being logged so that they can be checked
     """
+
     def __init__(self):
         super(CaptureHandler, self).__init__()
         self.__messages = []
@@ -63,15 +63,12 @@ class CaptureHandler(logging.StreamHandler):
 class TestArrowWriter:
     def test_init(self, mocker):
         mock_object_store = mocker.MagicMock(ObjectStoreManager)
-        mock_messaging = mocker.MagicMock(KafkaMessaging)
 
         aw = ArrowWriter(file_format='hdf5',
-                         object_store=mock_object_store,
-                         messaging=mock_messaging)
+                         object_store=mock_object_store)
 
         assert aw.object_store == mock_object_store
         assert aw.file_format == 'hdf5'
-        assert aw.messaging == mock_messaging
 
     def test_transform_file_object_store(self, mocker):
         from servicex.transformer.scratch_file_writer import ScratchFileWriter
@@ -85,12 +82,10 @@ class TestArrowWriter:
         mock_scratch_file.file_path = "/tmp/foo"
 
         aw = ArrowWriter(file_format='parquet',
-                         object_store=mock_object_store,
-                         messaging=None)
+                         object_store=mock_object_store)
 
         mock_transformer = mocker.MagicMock(UprootTransformer)
         mock_transformer.file_path = '/tmp/foo'
-        mock_transformer.chunk_size = 100
         mock_transformer.attr_name_list = ['a', 'b']
 
         data = OrderedDict([('strs', [chr(c) for c in range(ord('a'), ord('n'))]),
@@ -99,8 +94,7 @@ class TestArrowWriter:
         table2 = pa.Table.from_pydict(data)
 
         mock_transformer.arrow_table = mocker.Mock(return_value=iter([table, table2]))
-        aw.write_branches_to_arrow(transformer=mock_transformer, topic_name='servicex',
-                                   file_id=42, request_id="123-45")
+        aw.write_branches_to_arrow(transformer=mock_transformer, request_id="123-45")
 
         scratch_file_init.assert_called_with(file_format='parquet')
         mock_transformer.arrow_table.assert_called_with()
@@ -113,42 +107,3 @@ class TestArrowWriter:
         mock_object_store.upload_file.assert_called_once_with("123-45", ":tmp:foo",
                                                               "/tmp/foo")
         mock_scratch_file.remove_scratch_file.assert_called_once()
-
-    def test_transform_file_kafka(self, mocker, caplog):
-        mock_kafka = mocker.MagicMock(KafkaMessaging)
-        caplog.set_level(logging.INFO)
-        aw = ArrowWriter(file_format='parquet',
-                         object_store=None,
-                         messaging=mock_kafka)
-
-        mock_transformer = mocker.MagicMock(UprootTransformer)
-        mock_transformer.file_path = '/tmp/foo'
-        mock_transformer.chunk_size = 100
-        mock_transformer.attr_name_list = ['a', 'b']
-
-        data = OrderedDict([('strs', [chr(c) for c in range(ord('a'), ord('n'))]),
-                            ('ints', list(range(1, 14)))])
-        table = pa.Table.from_pydict(data)
-        table2 = pa.Table.from_pydict(data)
-
-        mock_transformer.arrow_table = mocker.Mock(return_value=iter([table, table2]))
-        caplog.clear()
-        aw.write_branches_to_arrow(transformer=mock_transformer, topic_name='servicex',
-                                   file_id=42, request_id="123-45")
-        assert len(caplog.records) == 2
-        assert caplog.records[0].levelno == logging.INFO
-        assert caplog.records[0].msg == "Wrote 2 events to servicex Avg Cell Size = " + \
-               "22.153846153846153 bytes"
-        assert caplog.records[1].levelno == logging.INFO
-        assert caplog.records[1].msg == "Real time: 0.0 minutes"
-        mock_transformer.arrow_table.assert_called_with()
-
-        kafka_calls = mock_kafka.publish_message.call_args_list
-        assert len(kafka_calls) == 2
-        topic, key, py_arrow_buffer = kafka_calls[0][0]
-        assert topic == 'servicex'
-        assert key == b'/tmp/foo-0'
-
-        reader = pa.RecordBatchStreamReader(py_arrow_buffer)
-        table = reader.read_all()
-        assert table.column_names == ['strs', 'ints']

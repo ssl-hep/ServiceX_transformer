@@ -40,10 +40,6 @@ class UprootTransformer:
     def attr_name_list(self):
         return self.event_iterator.attr_name_list
 
-    @property
-    def chunk_size(self):
-        return self.event_iterator.chunk_size
-
     def arrow_table(self):
         for object_array in self.event_iterator.iterate():
             unicode_array = {}

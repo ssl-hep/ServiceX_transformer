@@ -28,33 +28,13 @@
 
 import argparse
 
-default_brokerlist = "servicex-kafka-0.slateci.net:19092, " \
-                     "servicex-kafka-1.slateci.net:19092," \
-                     "servicex-kafka-2.slateci.net:19092"
-
 default_attr_names = "Events.Electron_pt,Events.Electron_eta,Muon_phi"
-
-# What is the largest message we want to send (in megabytes).
-# Note this must be less than the kafka broker setting if we are using kafka
-default_max_message_size = 14.5
 
 
 class TransformerArgumentParser(argparse.ArgumentParser):
 
     def __init__(self, description="ServiceX Transformer"):
         super(TransformerArgumentParser, self).__init__(description=description)
-
-        self.add_argument("--brokerlist", dest='brokerlist', action='store',
-                          default=default_brokerlist,
-                          help='List of Kafka broker to connect to')
-
-        self.add_argument("--topic", dest='topic', action='store',
-                          default='servicex',
-                          help='Kafka topic to publish arrays to')
-
-        self.add_argument("--chunks", dest='chunks', action='store',
-                          default=None, type=int,
-                          help='Arrow Buffer Chunksize')
 
         self.add_argument("--tree", dest='tree', action='store',
                           default="Events",
@@ -70,8 +50,8 @@ class TransformerArgumentParser(argparse.ArgumentParser):
 
         self.add_argument('--result-destination', dest='result_destination',
                           action='store',
-                          default='kafka', help='kafka, object-store, output-dir',
-                          choices=['kafka', 'object-store', 'output-dir', 'volume'])
+                          default='object-store', help='object-store, output-dir',
+                          choices=['object-store', 'output-dir', 'volume'])
 
         self.add_argument('--output-dir', dest='output_dir',
                           action='store',
@@ -81,20 +61,11 @@ class TransformerArgumentParser(argparse.ArgumentParser):
                           default='arrow', help='arrow, parquet, root-file',
                           choices=['arrow', 'parquet', 'root-file'])
 
-        self.add_argument("--max-message-size", dest='max_message_size',
-                          action='store', default=default_max_message_size,
-                          type=int,
-                          help='Max message size in megabytes')
-
         self.add_argument('--rabbit-uri', dest="rabbit_uri", action='store',
                           default='host.docker.internal')
 
         self.add_argument('--request-id', dest='request_id', action='store',
                           default='servicex', help='Request ID to read from queue')
-
-    @classmethod
-    def extract_kafka_brokers(cls, brokerlist):
-        return list(map(lambda b: b.strip(), brokerlist.split(",")))
 
     @classmethod
     def extract_attr_list(cls, attr_names):

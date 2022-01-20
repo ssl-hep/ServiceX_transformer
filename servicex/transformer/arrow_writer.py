@@ -28,16 +28,12 @@
 import time
 import logging
 
-import pyarrow as pa
-
 
 class ArrowWriter:
 
-    def __init__(self, file_format=None, object_store=None, messaging=None):
+    def __init__(self, file_format=None, object_store=None):
         self.file_format = file_format
         self.object_store = object_store
-        self.messaging = messaging
-        self.messaging_timings = []
         self.object_store_timing = 0
         self.avg_cell_size = []
         self.__init_logger()
@@ -49,12 +45,10 @@ class ArrowWriter:
         self.logger = logging.getLogger(__name__)
         self.logger.addHandler(handler)
 
-    def write_branches_to_arrow(self, transformer,
-                                topic_name, file_id, request_id):
+    def write_branches_to_arrow(self, transformer, request_id):
         from .scratch_file_writer import ScratchFileWriter
         tick = time.time()
         scratch_writer = None
-        total_messages = 0
 
         for pa_table in transformer.arrow_table():
             if self.object_store:
@@ -63,32 +57,6 @@ class ArrowWriter:
                     scratch_writer.open_scratch_file(pa_table)
 
                 scratch_writer.append_table_to_scratch(pa_table)
-
-            if self.messaging:
-                batches = pa_table.to_batches(max_chunksize=transformer.chunk_size)
-
-                for batch in batches:
-                    messaging_tick = time.time()
-
-                    # Just need to make key unique to shard messages across brokers
-                    key = str.encode(transformer.file_path + "-" + str(total_messages))
-
-                    sink = pa.BufferOutputStream()
-                    writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-                    writer.write_batch(batch)
-                    writer.close()
-                    self.messaging.publish_message(
-                        topic_name,
-                        key,
-                        sink.getvalue())
-
-                    # need the float type conversion so that / operation doesn't use integer div
-                    # TODO: remove float call when we drop support for python 2
-                    self.avg_cell_size.append(float(len(sink.getvalue().to_pybytes())) /
-                                              len(transformer.attr_name_list) /
-                                              batch.num_rows)
-                    total_messages += 1
-                    self.messaging_timings.append(time.time() - messaging_tick)
 
         if self.object_store:
             object_store_tick = time.time()
@@ -105,13 +73,5 @@ class ArrowWriter:
             self.object_store_timing = time.time() - object_store_tick
 
         tock = time.time()
-
-        if self.messaging:
-            # need the float type conversion so that / operation doesn't use integer div
-            # TODO: remove float call when we drop support for python 2
-            avg_avg_cell_size = float(sum(self.avg_cell_size)) / len(self.avg_cell_size) \
-                if len(self.avg_cell_size) else 0
-            self.logger.info("Wrote {0} events to {1} ".format(total_messages, topic_name) +
-                             "Avg Cell Size = {0:.15f} bytes".format(avg_avg_cell_size))
 
         self.logger.info("Real time: {0} minutes".format(round((tock - tick) / 60.0, 2)))
