@@ -26,6 +26,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import time
+import logging
 
 
 class ArrowWriter:
@@ -35,10 +36,17 @@ class ArrowWriter:
         self.object_store = object_store
         self.object_store_timing = 0
         self.avg_cell_size = []
+        self.__init_logger()
+
+    def __init_logger(self):
+        # Default logger doesn't print so that code that uses library
+        # can override
+        handler = logging.NullHandler()
+        self.logger = logging.getLogger(__name__)
+        self.logger.addHandler(handler)
 
     def write_branches_to_arrow(self, transformer, request_id):
         from .scratch_file_writer import ScratchFileWriter
-
         tick = time.time()
         scratch_writer = None
 
@@ -54,8 +62,8 @@ class ArrowWriter:
             object_store_tick = time.time()
             scratch_writer.close_scratch_file()
 
-            print("Writing parquet to ", request_id, " as ",
-                  transformer.file_path.replace('/', ':'))
+            self.logger.info("Writing parquet to {0} as ".format(request_id),
+                             transformer.file_path.replace('/', ':'))
 
             self.object_store.upload_file(request_id,
                                           transformer.file_path.replace('/', ':'),
@@ -66,4 +74,4 @@ class ArrowWriter:
 
         tock = time.time()
 
-        print("Real time: " + str(round(tock - tick / 60.0, 2)) + " minutes")
+        self.logger.info("Real time: {0} minutes".format(round((tock - tick) / 60.0, 2)))

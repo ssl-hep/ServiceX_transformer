@@ -25,6 +25,7 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import logging
 from collections import OrderedDict
 
 from servicex.transformer.arrow_writer import ArrowWriter
@@ -38,6 +39,25 @@ if sys.version_info >= (3, 3):
     from unittest.mock import call  # noqa: E402
 else:
     from mock import call  # noqa: E402
+
+
+class CaptureHandler(logging.StreamHandler):
+    """
+    Handler that captures messages being logged so that they can be checked
+    """
+
+    def __init__(self):
+        super(CaptureHandler, self).__init__()
+        self.__messages = []
+
+    def emit(self, record):
+        self.__messages.append(self.format(record))
+
+    def get_messages(self):
+        return self.__messages
+
+    def reset_messages(self):
+        self.__messages = []
 
 
 class TestArrowWriter:
