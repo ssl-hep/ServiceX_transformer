@@ -52,11 +52,11 @@ setuptools.setup(
     url='https://github.com/ssl-hep/ServiceX_transformer',
     keywords=['HEP', 'Data Engineering', 'Data Lake'],
     install_requires=[
-        'uproot==3.11.7',
-        'awkward == 0.12.21',
-        'requests == 2.24.0',
-        'pyarrow == 0.16.0',
-        'numpy == 1.16.6',
+        'uproot==4.1.9',
+        'awkward == 1.7.0',
+        'requests>=2.28.1',
+        'pyarrow == 3.0.0',
+        'numpy == 1.23.3',
         'pika==1.1.0',
         'minio==5.0.10',
         'retry == 0.9.2'
