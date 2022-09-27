@@ -54,7 +54,7 @@ setuptools.setup(
     install_requires=[
         'uproot==4.1.9',
         'awkward == 1.7.0',
-        'requests>=2.28.1',
+        'requests==2.28.1',
         'pyarrow == 3.0.0',
         'numpy == 1.23.3',
         'pika==1.1.0',
