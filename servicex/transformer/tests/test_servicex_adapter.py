@@ -81,7 +81,6 @@ class TestServiceXAdapter:
         assert mock_session.put.call_count == 2
         print(caplog.records)
         assert len(caplog.records) == 2
-        args = mock_session.put.call_args
         assert caplog.records[0].levelno == logging.INFO
         assert caplog.records[0].msg == "Put file complete."
         assert caplog.records[1].levelno == logging.WARNING
