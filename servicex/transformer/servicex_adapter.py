@@ -89,7 +89,8 @@ class ServiceXAdapter:
             "total-bytes": total_bytes,
             "avg-rate": avg_rate
         }
-        self.logger.info("Metric: {0}".format(json.dumps(doc)))
+
+        self.logger.info("Put file complete.", extra=doc)
 
         if self.server_endpoint:
             try:

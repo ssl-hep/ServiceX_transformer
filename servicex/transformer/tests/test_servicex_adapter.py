@@ -25,7 +25,6 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import json
 import logging
 
 from servicex.transformer.servicex_adapter import ServiceXAdapter
@@ -67,7 +66,7 @@ class TestServiceXAdapter:
 
         assert len(caplog.records) == 1
         assert caplog.records[0].levelno == logging.INFO
-        assert caplog.records[0].msg == "Metric: {0}".format(json.dumps(doc))
+        assert caplog.records[0].msg == "Put file complete."
 
     def test_put_file_complete_retry(self, mocker, caplog):
         import requests
@@ -83,9 +82,8 @@ class TestServiceXAdapter:
         print(caplog.records)
         assert len(caplog.records) == 2
         args = mock_session.put.call_args
-        doc = args[1]['json']
         assert caplog.records[0].levelno == logging.INFO
-        assert caplog.records[0].msg == "Metric: {0}".format(json.dumps(doc))
+        assert caplog.records[0].msg == "Put file complete."
         assert caplog.records[1].levelno == logging.WARNING
         assert caplog.records[1].msg == '%s, retrying in %s seconds...'
 
