@@ -26,7 +26,6 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import datetime
-import json
 import logging
 import os
 
@@ -89,7 +88,8 @@ class ServiceXAdapter:
             "total-bytes": total_bytes,
             "avg-rate": avg_rate
         }
-        self.logger.info("Metric: {0}".format(json.dumps(doc)))
+
+        self.logger.info("Put file complete.", extra=doc)
 
         if self.server_endpoint:
             try:
