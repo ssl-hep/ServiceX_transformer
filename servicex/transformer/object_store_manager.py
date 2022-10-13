@@ -28,7 +28,7 @@
 import os
 import logging
 from minio import Minio
-from minio.error import XmlParserException, ErrorResponseException
+from minio.error import MinioException, S3Error
 
 
 class ObjectStoreManager:
@@ -59,7 +59,7 @@ class ObjectStoreManager:
             self.logger.info(
                 f"created {result.object_name} object; \
                     etag: {result.etag}, version-id: {result.version_id}")
-        except ErrorResponseException:
-            self.log.error("Object Storage error", exc_info=True)
-        except XmlParserException:
-            self.log.error("Object Storage XmlParserException", exc_info=True)
+        except MinioException:
+            self.log.error("Minio error", exc_info=True)
+        except S3Error:
+            self.log.error("S3Error", exc_info=True)
