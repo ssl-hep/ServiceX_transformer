@@ -60,6 +60,6 @@ class ObjectStoreManager:
                 f"created {result.object_name} object; \
                     etag: {result.etag}, version-id: {result.version_id}")
         except MinioException:
-            self.log.error("Minio error", exc_info=True)
+            self.logger.error("Minio error", exc_info=True)
         except S3Error:
-            self.log.error("S3Error", exc_info=True)
+            self.logger.error("S3Error", exc_info=True)
