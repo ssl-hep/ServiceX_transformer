@@ -71,7 +71,6 @@ class ServiceXAdapter:
                        tries=MAX_RETRIES,
                        delay=RETRY_DELAY)
         except requests.exceptions.ConnectionError:
-            self.logger.error("*************** Unrecoverable Error ***************")
             self.logger.exception("Connection Error in post_status_update")
 
     def put_file_complete(self, file_path, file_id, status,
@@ -99,5 +98,4 @@ class ServiceXAdapter:
                            tries=MAX_RETRIES,
                            delay=RETRY_DELAY)
             except requests.exceptions.ConnectionError:
-                self.logger.error("*************** Unrecoverable Error ***************")
                 self.logger.exception("Connection Error in put_file_complete")

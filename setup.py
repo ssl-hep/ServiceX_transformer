@@ -58,7 +58,7 @@ setuptools.setup(
         'pyarrow == 3.0.0',
         'numpy == 1.23.3',
         'pika==1.1.0',
-        'minio==5.0.10',
+        'minio==7.1.12',
         'retry == 0.9.2'
     ],
 

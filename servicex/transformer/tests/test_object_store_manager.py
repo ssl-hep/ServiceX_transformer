@@ -60,7 +60,7 @@ class TestObjectStoreManager:
         assert called_config['secret_key'] == 'shhh'
         assert not called_config['secure']
 
-        os.environ['MINIO_SECURED'] = "True"
+        os.environ['MINIO_ENCRYPT'] = "True"
         ObjectStoreManager()
         called_config = mock_minio.call_args[1]
         assert called_config['endpoint'] == 'localhost:9999'
