@@ -39,8 +39,8 @@ class ObjectStoreManager:
         self.logger = logging.getLogger(__name__)
         self.logger.addHandler(handler)
 
-        if 'MINIO_SECURED' in os.environ:
-            secure_connection = os.environ['MINIO_SECURED'].lower() == "true"
+        if 'MINIO_ENCRYPT' in os.environ:
+            secure_connection = os.environ['MINIO_ENCRYPT'].lower() == "true"
         else:
             secure_connection = use_https
         self.minio_client = Minio(endpoint=url if url else os.environ[
