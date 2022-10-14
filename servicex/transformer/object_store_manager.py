@@ -56,9 +56,8 @@ class ObjectStoreManager:
             result = self.minio_client.fput_object(bucket_name=bucket,
                                                    object_name=object_name,
                                                    file_path=path)
-            self.logger.info(
-                f"created {result.object_name} object; \
-                    etag: {result.etag}, version-id: {result.version_id}")
+            self.logger.debug(
+                f"created {result.object_name} object; etag: {result.etag}")
         except MinioException:
             self.logger.error("Minio error", exc_info=True)
         except S3Error:
