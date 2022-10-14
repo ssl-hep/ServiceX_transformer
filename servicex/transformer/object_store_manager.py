@@ -27,7 +27,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import os
 import logging
-from minio import Minio
 from minio.error import MinioException, S3Error
 
 
@@ -35,6 +34,7 @@ class ObjectStoreManager:
 
     def __init__(self, url=None, username=None, password=None, use_https=False):
 
+        from minio import Minio
         handler = logging.NullHandler()
         self.logger = logging.getLogger(__name__)
         self.logger.addHandler(handler)
