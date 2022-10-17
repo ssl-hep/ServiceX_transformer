@@ -53,9 +53,8 @@ class ObjectStoreManager:
 
     def upload_file(self, bucket, object_name, path):
         try:
-            result = self.minio_client.fput_object(bucket_name=bucket,
-                                                   object_name=object_name,
-                                                   file_path=path)
-            self.logger.debug("created object", result.object_name)
+            self.minio_client.fput_object(bucket_name=bucket,
+                                          object_name=object_name,
+                                          file_path=path)
         except ResponseError as err:
             self.logger.error("could not upload file:", err)
