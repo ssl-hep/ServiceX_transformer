@@ -27,6 +27,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import os
 import logging
+from minio.error import ResponseError
 
 
 class ObjectStoreManager:
@@ -51,7 +52,10 @@ class ObjectStoreManager:
             secure=secure_connection)
 
     def upload_file(self, bucket, object_name, path):
-        result = self.minio_client.fput_object(bucket_name=bucket,
-                                               object_name=object_name,
-                                               file_path=path)
-        self.logger.debug("created object", result.object_name)
+        try:
+            result = self.minio_client.fput_object(bucket_name=bucket,
+                                                   object_name=object_name,
+                                                   file_path=path)
+            self.logger.debug("created object", result.object_name)
+        except ResponseError as err:
+            self.logger.error("could not upload file:", err)
