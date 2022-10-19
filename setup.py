@@ -69,7 +69,7 @@ setuptools.setup(
         'lz4',
         'xxhash',
         'zstandard',
-        'backports.lzma',
+        # 'backports.lzma',
         'xrootd',
         'pyarrow==9.0.0',
 
