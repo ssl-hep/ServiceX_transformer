@@ -53,16 +53,20 @@ setuptools.setup(
     keywords=['HEP', 'Data Engineering', 'Data Lake'],
     install_requires=[
         # 'awkward == 0.12.21',
-        'requests == 2.24.0',
-        'pyarrow == 0.16.0',
+        # 'requests == 2.24.0',
+        # 'pyarrow == 0.16.0',
         # 'numpy == 1.16.6',
-        'numpy == 1.18.1',
+        # 'numpy == 1.18.1',
 
-        'uproot==4.1.9',
-        'awkward == 1.7.0',
-        # 'requests==2.28.1',
+        # 'uproot==4.1.9',
+        # 'awkward == 1.7.0',
+        'requests==2.28.1',
         # 'pyarrow == 3.0.0',
         # 'numpy == 1.23.3',
+
+        'uproot==4.3.7',
+        'awkward==1.10.1',
+        'pyarrow==9.0.0',
 
         'pika==1.1.0',
         'minio==7.1.12',
