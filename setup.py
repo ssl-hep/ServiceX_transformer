@@ -66,6 +66,11 @@ setuptools.setup(
 
         'uproot==4.3.7',
         'awkward==1.10.1',
+        'lz4',
+        'xxhash',
+        'zstandard',
+        'backports.lzma',
+        'xrootd',
         'pyarrow==9.0.0',
 
         'pika==1.1.0',
