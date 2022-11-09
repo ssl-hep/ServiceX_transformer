@@ -37,6 +37,7 @@ class RabbitMQManager:
     def __init__(self, rabbit_uri, queue_name, callback):
         success = False
 
+        logging.getLogger("pika").setLevel(logging.WARNING)
         handler = logging.NullHandler()
         self.logger = logging.getLogger(__name__)
         self.logger.addHandler(handler)
