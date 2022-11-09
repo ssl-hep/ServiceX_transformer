@@ -27,7 +27,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import os
 import logging
-from minio.error import MinioException, S3Error
 
 
 class ObjectStoreManager:
@@ -52,13 +51,7 @@ class ObjectStoreManager:
             secure=secure_connection)
 
     def upload_file(self, bucket, object_name, path):
-        try:
-            result = self.minio_client.fput_object(bucket_name=bucket,
-                                                   object_name=object_name,
-                                                   file_path=path)
-            self.logger.debug(
-                "created object", result.object_name)
-        except MinioException:
-            self.logger.error("Minio error", exc_info=True)
-        except S3Error:
-            self.logger.error("S3Error", exc_info=True)
+        result = self.minio_client.fput_object(bucket_name=bucket,
+                                               object_name=object_name,
+                                               file_path=path)
+        self.logger.debug("created object", result.object_name)
